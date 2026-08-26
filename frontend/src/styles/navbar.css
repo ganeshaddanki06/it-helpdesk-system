@@ -1,0 +1,13 @@
+.navbar { height: 64px; background-color: #ffffff; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; padding: 0 1.5rem; }
+.navbar-left { display: flex; align-items: center; gap: 1rem; }
+.menu-btn { display: none; background: none; border: none; cursor: pointer; padding: 0.5rem; }
+.navbar-system-name { font-weight: 600; color: #1e293b; font-size: 0.95rem; }
+.navbar-right { display: flex; align-items: center; gap: 1.25rem; }
+.notification-btn { position: relative; cursor: pointer; padding: 0.5rem; }
+.notification-dot { position: absolute; top: 6px; right: 6px; width: 7px; height: 7px; border-radius: 50%; background-color: #ef4444; }
+.user-profile { display: flex; align-items: center; gap: 0.75rem; }
+.user-avatar { width: 32px; height: 32px; border-radius: 50%; background-color: #dbeafe; display: flex; align-items: center; justify-content: center; }
+.user-info { display: flex; flex-direction: column; }
+.user-name { font-size: 0.8125rem; font-weight: 600; color: #0f172a; }
+.user-role { font-size: 0.6875rem; color: #64748b; }
+@media (max-width: 768px) { .menu-btn { display: block; } }
