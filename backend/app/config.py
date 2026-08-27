@@ -8,26 +8,29 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
     ENVIRONMENT: str = "production"
     DATABASE_URL: str = "sqlite:///./it_helpdesk.db"
+    FRONTEND_URL: str = "http://localhost:5173"
     
-    # Comma-separated list or Array of allowed frontend domains
     CORS_ORIGINS: Union[str, List[str]] = "http://localhost:5173,http://127.0.0.1:5173"
 
-    # JWT Authentication
-    SECRET_KEY: str = "it-helpdesk-super-secret-dev-key-change-in-production-2026"
+    SECRET_KEY: str = "it-helpdesk-jwt-secret-key-2026-production"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24
 
-    # Default Seed Admin Credentials
     ADMIN_USERNAME: str = "admin"
     ADMIN_EMAIL: str = "admin@example.com"
     ADMIN_PASSWORD: str = "admin123"
 
     @property
-    def cors_origins_list(self) -> List[str]:
-        """Parses comma-separated string from environment into a clean list."""
+    def cors_origins(self) -> List[str]:
+        """Returns allowed CORS origins as a list."""
         if isinstance(self.CORS_ORIGINS, list):
             return self.CORS_ORIGINS
         return [orig.strip() for orig in self.CORS_ORIGINS.split(",") if orig.strip()]
+
+    @property
+    def cors_origins_list(self) -> List[str]:
+        """Alias for backwards compatibility."""
+        return self.cors_origins
 
     class Config:
         env_file = ".env"
