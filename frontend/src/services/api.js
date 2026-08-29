@@ -1,22 +1,23 @@
 import axios from 'axios';
 
-// Dynamically resolve Backend Base URL from environment variables
-let rawBaseURL = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+// Direct Live Render Cloud Backend URL
+const LIVE_BACKEND_URL = 'https://it-helpdesk-system-2aj3.onrender.com/api/v1';
 
-// Ensure URL ends with /api/v1
+let rawBaseURL = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || LIVE_BACKEND_URL;
+
 if (!rawBaseURL.endsWith('/api/v1')) {
   rawBaseURL = rawBaseURL.replace(/\/+$/, '') + '/api/v1';
 }
 
 const api = axios.create({
   baseURL: rawBaseURL,
-  timeout: 15000,
+  timeout: 20000,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Request Interceptor: Attach Bearer Token from localStorage
+// Request Interceptor: Attach JWT Bearer Token if available
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('it_helpdesk_token');
@@ -28,7 +29,7 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response Interceptor: Handle 401 Unauthorized globally
+// Response Interceptor: Global Error & 401 Unauthorized handling
 api.interceptors.response.use(
   (response) => response.data,
   (error) => {
@@ -38,7 +39,7 @@ api.interceptors.response.use(
         localStorage.removeItem('it_helpdesk_user');
       }
     }
-    let errorMessage = 'Network error: The IT Helpdesk server is waking up or unreachable.';
+    let errorMessage = 'Network error: The backend server is waking up or unreachable.';
     if (error.response && error.response.data) {
       errorMessage = error.response.data.detail || error.response.data.message || JSON.stringify(error.response.data);
     } else if (error.message) {
