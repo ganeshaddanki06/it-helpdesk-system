@@ -13,7 +13,6 @@ import app.models
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Executes on startup: creates tables & seeds default users."""
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     try:
@@ -30,13 +29,14 @@ app = FastAPI(
     description="RESTful API for the IT Helpdesk and Asset Management System.",
     docs_url="/docs",
     redoc_url="/redoc",
-    lifespan=lifespan
+    lifespan=lifespan,
+    redirect_slashes=False
 )
 
 # CORS Configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    allow_origins=settings.cors_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
