@@ -18,13 +18,14 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
     status_code=status.HTTP_201_CREATED,
     summary="Register a new standard user account"
 )
+@router.post("/register/", response_model=UserResponse, status_code=status.HTTP_201_CREATED, include_in_schema=False)
 def register(user_in: UserCreate, db: Session = Depends(get_db)):
-    if db.query(User).filter(User.username == user_in.username).first():
+    if db.query(User).filter(User.username == user_in.username.strip().lower()).first():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Username already taken. Please choose another."
         )
-    if db.query(User).filter(User.email == user_in.email).first():
+    if db.query(User).filter(User.email == user_in.email.strip().lower()).first():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email address is already registered."
@@ -50,6 +51,7 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
     status_code=status.HTTP_200_OK,
     summary="Authenticate user and obtain JWT token"
 )
+@router.post("/login/", response_model=Token, status_code=status.HTTP_200_OK, include_in_schema=False)
 def login(login_data: UserLogin, db: Session = Depends(get_db)):
     identifier = login_data.username_or_email.strip().lower()
     user = db.query(User).filter(or_(User.username == identifier, User.email == identifier)).first()
@@ -81,6 +83,7 @@ def login(login_data: UserLogin, db: Session = Depends(get_db)):
     status_code=status.HTTP_200_OK,
     summary="Get authenticated user profile"
 )
+@router.get("/me/", response_model=UserResponse, status_code=status.HTTP_200_OK, include_in_schema=False)
 def get_me(current_user: User = Depends(get_current_active_user)):
     return current_user
 
@@ -90,6 +93,7 @@ def get_me(current_user: User = Depends(get_current_active_user)):
     status_code=status.HTTP_200_OK,
     summary="Logout user session"
 )
+@router.post("/logout/", status_code=status.HTTP_200_OK, include_in_schema=False)
 def logout(current_user: User = Depends(get_current_active_user)):
     return {"status": "success", "message": "Successfully logged out."}
 
@@ -100,6 +104,7 @@ def logout(current_user: User = Depends(get_current_active_user)):
     status_code=status.HTTP_200_OK,
     summary="Get all system users (Admin only)"
 )
+@router.get("/users/", response_model=UserListResponse, status_code=status.HTTP_200_OK, include_in_schema=False)
 def get_all_users(db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
     users = db.query(User).order_by(User.created_at.desc()).all()
     total = len(users)
