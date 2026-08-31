@@ -14,5 +14,9 @@ export default function StatusBadge({ status }) {
     }
   };
 
-  return <span className={`status-badge ${getStyle(status)}`}>{status || 'Unknown'}</span>;
+  return (
+    <span className={`status-badge ${getStyle(status)}`}>
+      {status || 'Unknown'}
+    </span>
+  );
 }
