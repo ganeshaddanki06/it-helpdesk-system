@@ -30,14 +30,21 @@ export default function TicketDetail() {
     try {
       setLoading(true);
       setError(null);
+      
+      // 1. Fetch Ticket Data
       const res = await ticketService.getTicket(ticketId);
       setTicket(res);
       setStatus(res.status);
       setAssignedTechId(res.assigned_technician_id || '');
       setResolutionNotes(res.resolution_notes || '');
 
-      const techs = await api.get('/technicians');
-      setTechnicians(techs || []);
+      // 2. Safely Fetch Technicians for Dropdown
+      try {
+        const techs = await api.get('/technicians');
+        setTechnicians(techs || []);
+      } catch {
+        setTechnicians([]);
+      }
     } catch (err) {
       setError(err.message || 'Ticket not found.');
     } finally {
@@ -62,7 +69,7 @@ export default function TicketDetail() {
 
       const updated = await ticketService.updateTicket(ticketId, payload);
       setTicket(updated);
-      setUpdateMsg('Ticket updated successfully!');
+      setUpdateMsg('Ticket status updated successfully!');
       setTimeout(() => setUpdateMsg(null), 4000);
     } catch (err) {
       alert(`Update failed: ${err.message}`);
@@ -165,7 +172,7 @@ export default function TicketDetail() {
           </div>
         </div>
 
-        {/* Right Column: Update Controls */}
+        {/* Right Column: Status Update Box */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           <div className="card" style={{ padding: '1.5rem' }}>
             <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#1e293b', marginBottom: '1rem' }}>Update Status & Assignment</h3>
