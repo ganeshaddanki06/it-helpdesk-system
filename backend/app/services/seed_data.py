@@ -10,7 +10,8 @@ from app.config import settings
 
 
 def seed_database(db: Session):
-    """Inserts default Admin user and demo records if empty."""
+    """Inserts default Admin, Faculty, Technician and demo records if empty."""
+    # 1. Seed Accounts
     if not db.query(User).filter(User.username == settings.ADMIN_USERNAME).first():
         print(f"[*] Seeding default Admin user: {settings.ADMIN_USERNAME}")
         admin_user = User(
@@ -21,10 +22,27 @@ def seed_database(db: Session):
             role=UserRole.ADMIN.value,
             is_active=True,
         )
+        # Direct Faculty Accounts (No registration required)
+        faculty_alan = User(
+            username="faculty_alan",
+            email="alan.cse@acet.ac.in",
+            full_name="Dr. Alan Turing (Professor & HOD, CSE)",
+            hashed_password=get_password_hash("faculty123"),
+            role=UserRole.FACULTY.value,
+            is_active=True,
+        )
+        faculty_ananya = User(
+            username="faculty_ananya",
+            email="ananya.cse@acet.ac.in",
+            full_name="Prof. Ananya Rao (Assistant Professor)",
+            hashed_password=get_password_hash("faculty123"),
+            role=UserRole.FACULTY.value,
+            is_active=True,
+        )
         tech_user = User(
             username="tech_rahul",
             email="rahul.kumar@demo.org",
-            full_name="Rahul Kumar (Technician)",
+            full_name="Rahul Kumar (IT Technician)",
             hashed_password=get_password_hash("tech123"),
             role=UserRole.TECHNICIAN.value,
             is_active=True,
@@ -37,7 +55,7 @@ def seed_database(db: Session):
             role=UserRole.USER.value,
             is_active=True,
         )
-        db.add_all([admin_user, tech_user, std_user])
+        db.add_all([admin_user, faculty_alan, faculty_ananya, tech_user, std_user])
         db.commit()
 
     if db.query(Technician).count() > 0:
@@ -83,7 +101,7 @@ def seed_database(db: Session):
     # Tickets
     ticket1 = Ticket(
         ticket_id="TCK-1001",
-        requester_name="Ananya Rao",
+        requester_name="Dr. Alan Turing",
         requester_type=RequesterType.FACULTY.value,
         category=TicketCategory.NETWORK.value,
         issue_title="Wi-Fi disconnecting in Lab 3",
@@ -111,7 +129,7 @@ def seed_database(db: Session):
     db.commit()
 
     # History
-    hist1 = TicketHistory(ticket_id=ticket1.id, old_status=None, new_status=TicketStatus.OPEN.value, changed_by="Ananya Rao", notes="Ticket created.")
+    hist1 = TicketHistory(ticket_id=ticket1.id, old_status=None, new_status=TicketStatus.OPEN.value, changed_by="Dr. Alan Turing", notes="Ticket created.")
     hist2 = TicketHistory(ticket_id=ticket1.id, old_status=TicketStatus.OPEN.value, new_status=TicketStatus.IN_PROGRESS.value, changed_by="Rahul Kumar", notes="Assigned to Priya Sharma.")
     db.add_all([hist1, hist2])
     db.commit()

@@ -19,6 +19,11 @@ class UserLogin(BaseModel):
     password: str = Field(..., min_length=1)
 
 
+class PasswordChangeRequest(BaseModel):
+    old_password: str = Field(..., min_length=1)
+    new_password: str = Field(..., min_length=6, max_length=100)
+
+
 class UserResponse(UserBase):
     id: int
     role: UserRole
@@ -43,5 +48,6 @@ class UserListResponse(BaseModel):
     users: List[UserResponse]
     total: int
     admin_count: int
+    faculty_count: int = 0
     technician_count: int
     user_count: int
