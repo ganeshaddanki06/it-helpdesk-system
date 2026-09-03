@@ -21,7 +21,7 @@ import NotFound from './pages/NotFound';
 
 import './App.css';
 
-function MainLayout() {
+function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
@@ -29,19 +29,7 @@ function MainLayout() {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="main-wrapper">
         <Navbar onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
-        <main className="content-area">
-          <Routes>
-            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            <Route path="/tickets" element={<ProtectedRoute><TicketsList /></ProtectedRoute>} />
-            <Route path="/tickets/new" element={<ProtectedRoute><CreateTicket /></ProtectedRoute>} />
-            <Route path="/tickets/:ticketId" element={<ProtectedRoute><TicketDetail /></ProtectedRoute>} />
-            <Route path="/assets" element={<ProtectedRoute><AssetsList /></ProtectedRoute>} />
-            <Route path="/assets/new" element={<ProtectedRoute><CreateAsset /></ProtectedRoute>} />
-            <Route path="/assets/:assetId" element={<ProtectedRoute><AssetDetail /></ProtectedRoute>} />
-            <Route path="/admin" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </main>
+        <main className="content-area">{children}</main>
       </div>
     </div>
   );
@@ -52,11 +40,22 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          {/* Always start at Login page initially */}
+          {/* Always land on Login page first */}
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-          <Route path="/*" element={<MainLayout />} />
+
+          {/* Protected Pages wrapped in Layout */}
+          <Route path="/dashboard" element={<ProtectedRoute><Layout><Dashboard /></Layout></ProtectedRoute>} />
+          <Route path="/tickets" element={<ProtectedRoute><Layout><TicketsList /></Layout></ProtectedRoute>} />
+          <Route path="/tickets/new" element={<ProtectedRoute><Layout><CreateTicket /></Layout></ProtectedRoute>} />
+          <Route path="/tickets/:ticketId" element={<ProtectedRoute><Layout><TicketDetail /></Layout></ProtectedRoute>} />
+          <Route path="/assets" element={<ProtectedRoute><Layout><AssetsList /></Layout></ProtectedRoute>} />
+          <Route path="/assets/new" element={<ProtectedRoute><Layout><CreateAsset /></Layout></ProtectedRoute>} />
+          <Route path="/assets/:assetId" element={<ProtectedRoute><Layout><AssetDetail /></Layout></ProtectedRoute>} />
+          <Route path="/admin" element={<ProtectedRoute requiredRole="admin"><Layout><AdminDashboard /></Layout></ProtectedRoute>} />
+
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>
