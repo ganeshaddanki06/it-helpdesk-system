@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, status, HTTPException
+from fastapi import APIRouter, Depends, Query, status, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
@@ -10,7 +10,7 @@ from app.schemas.ticket import (
     TicketListResponse,
 )
 from app.services import ticket_service
-from app.models.enums import TicketStatus, TicketPriority, TicketCategory
+from app.services.email_service import send_ticket_created_email, send_ticket_resolved_email
 
 router = APIRouter(prefix="/tickets", tags=["Tickets"])
 
@@ -19,13 +19,28 @@ router = APIRouter(prefix="/tickets", tags=["Tickets"])
     "",
     response_model=TicketResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Create a new support ticket"
+    summary="Create a new support ticket and send live email"
 )
 def create_ticket(
     ticket_in: TicketCreate,
+    background_tasks: BackgroundTasks,
+    recipient_email: Optional[str] = Query(default=None),
     db: Session = Depends(get_db),
 ):
-    return ticket_service.create_ticket(db=db, ticket_in=ticket_in)
+    ticket = ticket_service.create_ticket(db=db, ticket_in=ticket_in)
+    
+    target_email = recipient_email or "ganeshaddanki06@gmail.com"
+    background_tasks.add_task(
+        send_ticket_created_email,
+        to_email=target_email,
+        requester_name=ticket.requester_name,
+        ticket_id=ticket.ticket_id,
+        issue_title=ticket.issue_title,
+        category=ticket.category,
+        location=ticket.location,
+        priority=ticket.priority
+    )
+    return ticket
 
 
 @router.get(
@@ -36,9 +51,9 @@ def create_ticket(
 )
 def list_tickets(
     search: Optional[str] = Query(default=None),
-    status: Optional[TicketStatus] = Query(default=None),
-    priority: Optional[TicketPriority] = Query(default=None),
-    category: Optional[TicketCategory] = Query(default=None),
+    status: Optional[str] = Query(default=None),
+    priority: Optional[str] = Query(default=None),
+    category: Optional[str] = Query(default=None),
     location: Optional[str] = Query(default=None),
     assigned_technician_id: Optional[int] = Query(default=None),
     sort_by: Optional[str] = Query(default="created_at"),
@@ -76,14 +91,27 @@ def get_ticket(ticket_id: str, db: Session = Depends(get_db)):
     "/{ticket_id}",
     response_model=TicketResponse,
     status_code=status.HTTP_200_OK,
-    summary="Update a ticket status"
+    summary="Update a ticket status and notify"
 )
 def update_ticket(
     ticket_id: str,
     ticket_in: TicketUpdate,
+    background_tasks: BackgroundTasks,
+    recipient_email: Optional[str] = Query(default=None),
     db: Session = Depends(get_db),
 ):
-    return ticket_service.update_ticket(db=db, identifier=ticket_id, ticket_in=ticket_in)
+    ticket = ticket_service.update_ticket(db=db, identifier=ticket_id, ticket_in=ticket_in)
+    if ticket_in.status == "Resolved":
+        target = recipient_email or "ganeshaddanki06@gmail.com"
+        background_tasks.add_task(
+            send_ticket_resolved_email,
+            to_email=target,
+            requester_name=ticket.requester_name,
+            ticket_id=ticket.ticket_id,
+            issue_title=ticket.issue_title,
+            notes=ticket.resolution_notes or ""
+        )
+    return ticket
 
 
 @router.delete(
