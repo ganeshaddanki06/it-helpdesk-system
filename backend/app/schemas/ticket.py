@@ -1,24 +1,16 @@
-from pydantic import BaseModel, Field, ConfigDict
-from typing import Optional, List
+from pydantic import BaseModel, ConfigDict
+from typing import Optional, List, Any
 from datetime import datetime
-
-from app.models.enums import RequesterType, TicketCategory, TicketPriority, TicketStatus
-from app.schemas.technician import TechnicianResponse
-
-try:
-    from app.schemas.history import TicketHistoryResponse
-except ImportError:
-    from app.schemas.history import HistoryResponse as TicketHistoryResponse
 
 
 class TicketBase(BaseModel):
-    requester_name: str = Field(..., min_length=2, max_length=100)
-    requester_type: RequesterType = RequesterType.STUDENT
-    category: TicketCategory = TicketCategory.OTHER
-    priority: TicketPriority = TicketPriority.MEDIUM
-    location: str = Field(..., min_length=2, max_length=100)
-    issue_title: str = Field(..., min_length=3, max_length=200)
-    issue_description: str = Field(..., min_length=5)
+    requester_name: str
+    requester_type: str = "Student"
+    category: str = "Other"
+    priority: str = "Medium"
+    location: str
+    issue_title: str
+    issue_description: str
 
 
 class TicketCreate(TicketBase):
@@ -26,30 +18,37 @@ class TicketCreate(TicketBase):
 
 
 class TicketUpdate(BaseModel):
-    status: Optional[TicketStatus] = None
-    priority: Optional[TicketPriority] = None
+    status: Optional[str] = None
+    priority: Optional[str] = None
     assigned_technician_id: Optional[int] = None
     resolution_notes: Optional[str] = None
 
 
-class TicketResponse(TicketBase):
+class TicketResponse(BaseModel):
     id: int
     ticket_id: str
-    status: TicketStatus
+    requester_name: str
+    requester_type: str = "Student"
+    category: str = "Other"
+    priority: str = "Medium"
+    status: str = "Open"
+    location: str = ""
+    issue_title: str = ""
+    issue_description: str = ""
     assigned_technician_id: Optional[int] = None
-    assigned_technician: Optional[TechnicianResponse] = None
     resolution_notes: Optional[str] = None
-    history: List[TicketHistoryResponse] = []
-    created_at: datetime
-    updated_at: datetime
+    history: Optional[List[Any]] = []
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, extra="ignore")
 
 
-# Pagination & Filtered Tickets List Response
 class TicketListResponse(BaseModel):
-    tickets: List[TicketResponse]
-    total: int
-    page: int
-    limit: int
-    total_pages: int
+    tickets: List[TicketResponse] = []
+    total: int = 0
+    page: int = 1
+    limit: int = 10
+    total_pages: int = 1
+
+    model_config = ConfigDict(from_attributes=True, extra="ignore")
