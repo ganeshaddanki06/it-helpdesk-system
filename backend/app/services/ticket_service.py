@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, desc, asc
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any
 from datetime import datetime
 from fastapi import HTTPException, status
 
@@ -17,9 +17,9 @@ def generate_ticket_id(db: Session) -> str:
 
 def create_ticket(db: Session, ticket_in: TicketCreate) -> Ticket:
     ticket_id = generate_ticket_id(db)
-    req_type = ticket_in.requester_type.value if hasattr(ticket_in.requester_type, 'value') else str(ticket_in.requester_type)
-    cat = ticket_in.category.value if hasattr(ticket_in.category, 'value') else str(ticket_in.category)
-    prio = ticket_in.priority.value if hasattr(ticket_in.priority, 'value') else str(ticket_in.priority)
+    req_type = str(ticket_in.requester_type.value if hasattr(ticket_in.requester_type, 'value') else ticket_in.requester_type)
+    cat = str(ticket_in.category.value if hasattr(ticket_in.category, 'value') else ticket_in.category)
+    prio = str(ticket_in.priority.value if hasattr(ticket_in.priority, 'value') else ticket_in.priority)
 
     db_ticket = Ticket(
         ticket_id=ticket_id,
@@ -36,7 +36,6 @@ def create_ticket(db: Session, ticket_in: TicketCreate) -> Ticket:
     db.commit()
     db.refresh(db_ticket)
 
-    # Initial history log
     try:
         hist = TicketHistory(
             ticket_id=db_ticket.id,
@@ -82,15 +81,15 @@ def list_tickets(
         )
 
     if status:
-        st_val = status.value if hasattr(status, 'value') else str(status)
+        st_val = str(status.value if hasattr(status, 'value') else status)
         query = query.filter(Ticket.status == st_val)
 
     if priority:
-        pr_val = priority.value if hasattr(priority, 'value') else str(priority)
+        pr_val = str(priority.value if hasattr(priority, 'value') else priority)
         query = query.filter(Ticket.priority == pr_val)
 
     if category:
-        cat_val = category.value if hasattr(category, 'value') else str(category)
+        cat_val = str(category.value if hasattr(category, 'value') else category)
         query = query.filter(Ticket.category == cat_val)
 
     if location:
@@ -102,7 +101,6 @@ def list_tickets(
     total = query.count()
     total_pages = (total + limit - 1) // limit if limit > 0 else 1
 
-    # Safe Sorting
     sort_col = getattr(Ticket, sort_by, Ticket.created_at) if hasattr(Ticket, sort_by) else Ticket.created_at
     if sort_order == "asc":
         query = query.order_by(asc(sort_col))
@@ -140,12 +138,10 @@ def update_ticket(db: Session, identifier: str, ticket_in: TicketUpdate) -> Tick
     old_status = ticket.status
 
     if ticket_in.status:
-        st_val = ticket_in.status.value if hasattr(ticket_in.status, 'value') else str(ticket_in.status)
-        ticket.status = st_val
+        ticket.status = str(ticket_in.status.value if hasattr(ticket_in.status, 'value') else ticket_in.status)
 
     if ticket_in.priority:
-        pr_val = ticket_in.priority.value if hasattr(ticket_in.priority, 'value') else str(ticket_in.priority)
-        ticket.priority = pr_val
+        ticket.priority = str(ticket_in.priority.value if hasattr(ticket_in.priority, 'value') else ticket_in.priority)
 
     if ticket_in.assigned_technician_id is not None:
         ticket.assigned_technician_id = ticket_in.assigned_technician_id
@@ -157,7 +153,6 @@ def update_ticket(db: Session, identifier: str, ticket_in: TicketUpdate) -> Tick
     db.commit()
     db.refresh(ticket)
 
-    # History log if status changed
     if ticket_in.status and str(old_status) != str(ticket.status):
         try:
             hist = TicketHistory(
