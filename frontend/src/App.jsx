@@ -31,7 +31,6 @@ function MainLayout() {
         <Navbar onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
         <main className="content-area">
           <Routes>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/tickets" element={<ProtectedRoute><TicketsList /></ProtectedRoute>} />
             <Route path="/tickets/new" element={<ProtectedRoute><CreateTicket /></ProtectedRoute>} />
@@ -53,6 +52,8 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
+          {/* Always start at Login page initially */}
+          <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/*" element={<MainLayout />} />
