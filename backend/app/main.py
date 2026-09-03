@@ -30,13 +30,20 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
     lifespan=lifespan,
-    redirect_slashes=False
 )
 
-# CORS Configuration
+# Comprehensive CORS Configuration for Vercel & Localhost
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins_list,
+    allow_origins=[
+        "https://it-helpdesk-system-2m9r.vercel.app",
+        "https://it-helpdesk-system-sigma.vercel.app",
+        "https://it-helpdesk-system-3xy4.vercel.app",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+    ],
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
