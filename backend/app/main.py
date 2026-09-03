@@ -13,6 +13,7 @@ import app.models
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """Executes on startup: creates tables & seeds default users."""
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     try:
@@ -32,7 +33,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Universal CORS - Allows all origins everywhere with zero blocking
+# Universal CORS Configuration - Allows all origins everywhere with zero blocking
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
