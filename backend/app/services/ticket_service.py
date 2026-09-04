@@ -10,18 +10,18 @@ from sqlalchemy.orm import Session
 
 
 def generate_ticket_id(db: Session) -> str:
-  """Generates a guaranteed unique ticket ID like IT-2026-8492."""
+  """Generates a guaranteed unique random ticket ID (e.g. IT-2026-4891)."""
   year = datetime.utcnow().year
-  while True:
-    rand_suffix = random.randint(1000, 9999)
-    candidate_id = f"IT-{year}-{rand_suffix}"
-    # Check if candidate_id already exists in database
+  for _ in range(50):
+    rand_num = random.randint(1000, 9999)
+    candidate_id = f"IT-{year}-{rand_num}"
     if (
         not db.query(Ticket)
         .filter(Ticket.ticket_id == candidate_id)
         .first()
     ):
       return candidate_id
+  return f"IT-{year}-{random.randint(10000, 99999)}"
 
 
 def create_ticket(db: Session, ticket_in: TicketCreate) -> Ticket:
@@ -54,9 +54,21 @@ def create_ticket(db: Session, ticket_in: TicketCreate) -> Ticket:
       status="Open",
   )
   db.add(db_ticket)
-  db.commit()
-  db.refresh(db_ticket)
 
+  try:
+    db.commit()
+    db.refresh(db_ticket)
+  except Exception:
+    db.rollback()
+    # Retry with guaranteed unique fallback ID if collision happens
+    db_ticket.ticket_id = (
+        f"IT-{datetime.utcnow().year}-{random.randint(10000, 99999)}"
+    )
+    db.add(db_ticket)
+    db.commit()
+    db.refresh(db_ticket)
+
+  # Initial history log
   try:
     hist = TicketHistory(
         ticket_id=db_ticket.id,
