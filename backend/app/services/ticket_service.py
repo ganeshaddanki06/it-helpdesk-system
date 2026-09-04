@@ -1,69 +1,276 @@
-
 from datetime import datetime
-from typing import List, Optional
-from pydantic import BaseModel, ConfigDict
+import random
+from typing import Any, Dict, List, Optional
+from app.models.history import TicketHistory
+from app.models.ticket import Ticket
+from app.schemas.ticket import TicketCreate, TicketUpdate
+from fastapi import HTTPException, status
+from sqlalchemy import asc, desc, or_
+from sqlalchemy.orm import Session
 
 
-class TicketBase(BaseModel):
-  requester_name: str
-  requester_type: str = "Faculty"
-  category: str = "Other"
-  priority: str = "Medium"
-  location: str
-  issue_title: str
-  issue_description: str
+def generate_ticket_id(db: Session) -> str:
+  year = datetime.utcnow().year
+  for _ in range(50):
+    rand_num = random.randint(1000, 9999)
+    cand_id = f"IT-{year}-{rand_num}"
+    if not db.query(Ticket).filter(Ticket.ticket_id == cand_id).first():
+      return cand_id
+  return f"IT-{year}-{random.randint(10000, 99999)}"
 
 
-class TicketCreate(TicketBase):
-  pass
+def ticket_to_dict(t: Ticket) -> dict:
+  """Converts Ticket to pure JSON dictionary with zero 500 serialization errors."""
+  history_list = []
+  try:
+    if hasattr(t, "history") and t.history:
+      for h in t.history:
+        history_list.append({
+            "id": h.id,
+            "ticket_id": h.ticket_id,
+            "old_status": h.old_status,
+            "new_status": h.new_status,
+            "changed_by": h.changed_by,
+            "notes": h.notes,
+            "created_at": h.created_at.isoformat() if h.created_at else None,
+        })
+  except Exception:
+    pass
+
+  return {
+      "id": t.id,
+      "ticket_id": t.ticket_id,
+      "requester_name": t.requester_name,
+      "requester_type": str(t.requester_type or "Faculty"),
+      "category": str(t.category or "Other"),
+      "priority": str(t.priority or "Medium"),
+      "status": str(t.status or "Open"),
+      "location": str(t.location or ""),
+      "issue_title": str(t.issue_title or ""),
+      "issue_description": str(t.issue_description or ""),
+      "assigned_technician_id": t.assigned_technician_id,
+      "resolution_notes": t.resolution_notes or "",
+      "history": history_list,
+      "created_at": t.created_at.isoformat() if t.created_at else None,
+      "updated_at": t.updated_at.isoformat() if t.updated_at else None,
+  }
 
 
-class TicketUpdate(BaseModel):
-  status: Optional[str] = None
-  priority: Optional[str] = None
-  assigned_technician_id: Optional[int] = None
-  resolution_notes: Optional[str] = None
+def create_ticket(db: Session, ticket_in: TicketCreate) -> dict:
+  ticket_id = generate_ticket_id(db)
+  req_type = str(
+      ticket_in.requester_type.value
+      if hasattr(ticket_in.requester_type, "value")
+      else ticket_in.requester_type
+  )
+  cat = str(
+      ticket_in.category.value
+      if hasattr(ticket_in.category, "value")
+      else ticket_in.category
+  )
+  prio = str(
+      ticket_in.priority.value
+      if hasattr(ticket_in.priority, "value")
+      else ticket_in.priority
+  )
+
+  db_ticket = Ticket(
+      ticket_id=ticket_id,
+      requester_name=ticket_in.requester_name,
+      requester_type=req_type,
+      category=cat,
+      priority=prio,
+      location=ticket_in.location,
+      issue_title=ticket_in.issue_title,
+      issue_description=ticket_in.issue_description,
+      status="Open",
+  )
+  db.add(db_ticket)
+
+  try:
+    db.commit()
+    db.refresh(db_ticket)
+  except Exception:
+    db.rollback()
+    db_ticket.ticket_id = (
+        f"IT-{datetime.utcnow().year}-{random.randint(10000, 99999)}"
+    )
+    db.add(db_ticket)
+    db.commit()
+    db.refresh(db_ticket)
+
+  try:
+    hist = TicketHistory(
+        ticket_id=db_ticket.id,
+        old_status=None,
+        new_status="Open",
+        changed_by=ticket_in.requester_name,
+        notes="Ticket created.",
+    )
+    db.add(hist)
+    db.commit()
+    db.refresh(db_ticket)
+  except Exception:
+    pass
+
+  return ticket_to_dict(db_ticket)
 
 
-# Ticket History Serialization Item
-class TicketHistoryItem(BaseModel):
-  id: Optional[int] = None
-  ticket_id: Optional[int] = None
-  old_status: Optional[str] = None
-  new_status: Optional[str] = None
-  changed_by: Optional[str] = None
-  notes: Optional[str] = None
-  created_at: Optional[datetime] = None
+def list_tickets(
+    db: Session,
+    search: Optional[str] = None,
+    status: Optional[str] = None,
+    priority: Optional[str] = None,
+    category: Optional[str] = None,
+    location: Optional[str] = None,
+    assigned_technician_id: Optional[int] = None,
+    sort_by: Optional[str] = "created_at",
+    sort_order: Optional[str] = "desc",
+    page: int = 1,
+    limit: int = 10,
+) -> Dict[str, Any]:
+  query = db.query(Ticket)
 
-  model_config = ConfigDict(from_attributes=True, extra="ignore")
+  if search:
+    search_filter = f"%{search.strip()}%"
+    query = query.filter(
+        or_(
+            Ticket.issue_title.ilike(search_filter),
+            Ticket.issue_description.ilike(search_filter),
+            Ticket.requester_name.ilike(search_filter),
+            Ticket.location.ilike(search_filter),
+            Ticket.ticket_id.ilike(search_filter),
+        )
+    )
+
+  if status:
+    st_val = str(status.value if hasattr(status, "value") else status)
+    query = query.filter(Ticket.status == st_val)
+
+  if priority:
+    pr_val = str(priority.value if hasattr(priority, "value") else priority)
+    query = query.filter(Ticket.priority == pr_val)
+
+  if category:
+    cat_val = str(category.value if hasattr(category, "value") else category)
+    query = query.filter(Ticket.category == cat_val)
+
+  if location:
+    query = query.filter(Ticket.location.ilike(f"%{location.strip()}%"))
+
+  if assigned_technician_id:
+    query = query.filter(Ticket.assigned_technician_id == assigned_technician_id)
+
+  total = query.count()
+  total_pages = (total + limit - 1) // limit if limit > 0 else 1
+
+  sort_col = (
+      getattr(Ticket, sort_by, Ticket.created_at)
+      if hasattr(Ticket, sort_by)
+      else Ticket.created_at
+  )
+  if sort_order == "asc":
+    query = query.order_by(asc(sort_col))
+  else:
+    query = query.order_by(desc(sort_col))
+
+  offset = (page - 1) * limit
+  tickets = query.offset(offset).limit(limit).all()
+
+  return {
+      "tickets": [ticket_to_dict(t) for t in tickets],
+      "total": total,
+      "page": page,
+      "limit": limit,
+      "total_pages": total_pages,
+  }
 
 
-# Full Ticket Response with Serialized History
-class TicketResponse(BaseModel):
-  id: int
-  ticket_id: str
-  requester_name: str
-  requester_type: str = "Faculty"
-  category: str = "Other"
-  priority: str = "Medium"
-  status: str = "Open"
-  location: str = ""
-  issue_title: str = ""
-  issue_description: str = ""
-  assigned_technician_id: Optional[int] = None
-  resolution_notes: Optional[str] = None
-  history: List[TicketHistoryItem] = []
-  created_at: Optional[datetime] = None
-  updated_at: Optional[datetime] = None
+def get_ticket_by_id(db: Session, identifier: str) -> dict:
+  if identifier.isdigit():
+    ticket = db.query(Ticket).filter(Ticket.id == int(identifier)).first()
+  else:
+    ticket = db.query(Ticket).filter(Ticket.ticket_id == identifier).first()
 
-  model_config = ConfigDict(from_attributes=True, extra="ignore")
+  if not ticket:
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail=f"Ticket '{identifier}' not found",
+    )
+  return ticket_to_dict(ticket)
 
 
-class TicketListResponse(BaseModel):
-  tickets: List[TicketResponse] = []
-  total: int = 0
-  page: int = 1
-  limit: int = 10
-  total_pages: int = 1
+def update_ticket(db: Session, identifier: str, ticket_in: TicketUpdate) -> dict:
+  if identifier.isdigit():
+    ticket = db.query(Ticket).filter(Ticket.id == int(identifier)).first()
+  else:
+    ticket = db.query(Ticket).filter(Ticket.ticket_id == identifier).first()
 
-  model_config = ConfigDict(from_attributes=True, extra="ignore")
+  if not ticket:
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail=f"Ticket '{identifier}' not found",
+    )
+
+  old_status = ticket.status
+
+  if ticket_in.status:
+    ticket.status = str(
+        ticket_in.status.value
+        if hasattr(ticket_in.status, "value")
+        else ticket_in.status
+    )
+
+  if ticket_in.priority:
+    ticket.priority = str(
+        ticket_in.priority.value
+        if hasattr(ticket_in.priority, "value")
+        else ticket_in.priority
+    )
+
+  if ticket_in.assigned_technician_id is not None:
+    ticket.assigned_technician_id = ticket_in.assigned_technician_id
+
+  if ticket_in.resolution_notes:
+    ticket.resolution_notes = ticket_in.resolution_notes
+
+  ticket.updated_at = datetime.utcnow()
+  db.commit()
+  db.refresh(ticket)
+
+  if ticket_in.status and str(old_status) != str(ticket.status):
+    try:
+      hist = TicketHistory(
+          ticket_id=ticket.id,
+          old_status=old_status,
+          new_status=ticket.status,
+          changed_by="Support Staff",
+          notes=(
+              ticket_in.resolution_notes
+              or f"Status changed to {ticket.status}."
+          ),
+      )
+      db.add(hist)
+      db.commit()
+      db.refresh(ticket)
+    except Exception:
+      pass
+
+  return ticket_to_dict(ticket)
+
+
+def delete_ticket(db: Session, identifier: str):
+  if identifier.isdigit():
+    ticket = db.query(Ticket).filter(Ticket.id == int(identifier)).first()
+  else:
+    ticket = db.query(Ticket).filter(Ticket.ticket_id == identifier).first()
+
+  if not ticket:
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail=f"Ticket '{identifier}' not found",
+    )
+
+  db.delete(ticket)
+  db.commit()
+  return {"status": "success", "message": f"Ticket {identifier} deleted"}
