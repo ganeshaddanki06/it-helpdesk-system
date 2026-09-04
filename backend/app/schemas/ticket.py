@@ -5,7 +5,7 @@ from datetime import datetime
 
 class TicketBase(BaseModel):
     requester_name: str
-    requester_type: str = "Student"
+    requester_type: str = "Faculty"
     category: str = "Other"
     priority: str = "Medium"
     location: str
@@ -28,7 +28,7 @@ class TicketResponse(BaseModel):
     id: int
     ticket_id: str
     requester_name: str
-    requester_type: str = "Student"
+    requester_type: str = "Faculty"
     category: str = "Other"
     priority: str = "Medium"
     status: str = "Open"

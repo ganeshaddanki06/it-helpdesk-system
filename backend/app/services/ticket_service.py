@@ -36,6 +36,7 @@ def create_ticket(db: Session, ticket_in: TicketCreate) -> Ticket:
     db.commit()
     db.refresh(db_ticket)
 
+    # Initial history log
     try:
         hist = TicketHistory(
             ticket_id=db_ticket.id,

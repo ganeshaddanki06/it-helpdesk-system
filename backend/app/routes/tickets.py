@@ -1,14 +1,15 @@
+from fastapi import APIRouter, Depends, Query, status, HTTPException
+from sqlalchemy.orm import Session
 from typing import List, Optional
+
 from app.database import get_db
 from app.schemas.ticket import (
     TicketCreate,
-    TicketListResponse,
-    TicketResponse,
     TicketUpdate,
+    TicketResponse,
+    TicketListResponse,
 )
 from app.services import ticket_service
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/tickets", tags=["Tickets"])
 
@@ -17,21 +18,20 @@ router = APIRouter(prefix="/tickets", tags=["Tickets"])
     "",
     response_model=TicketResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Create a new support ticket",
+    summary="Create a new support ticket"
 )
 def create_ticket(
     ticket_in: TicketCreate,
-    recipient_email: Optional[str] = Query(default=None),
     db: Session = Depends(get_db),
 ):
-  return ticket_service.create_ticket(db=db, ticket_in=ticket_in)
+    return ticket_service.create_ticket(db=db, ticket_in=ticket_in)
 
 
 @router.get(
     "",
     response_model=TicketListResponse,
     status_code=status.HTTP_200_OK,
-    summary="Search, filter, and paginate tickets",
+    summary="Search, filter, and paginate tickets"
 )
 def list_tickets(
     search: Optional[str] = Query(default=None),
@@ -46,49 +46,49 @@ def list_tickets(
     limit: int = Query(default=10, ge=1, le=100),
     db: Session = Depends(get_db),
 ):
-  return ticket_service.list_tickets(
-      db=db,
-      search=search,
-      status=status,
-      priority=priority,
-      category=category,
-      location=location,
-      assigned_technician_id=assigned_technician_id,
-      sort_by=sort_by,
-      sort_order=sort_order,
-      page=page,
-      limit=limit,
-  )
+    return ticket_service.list_tickets(
+        db=db,
+        search=search,
+        status=status,
+        priority=priority,
+        category=category,
+        location=location,
+        assigned_technician_id=assigned_technician_id,
+        sort_by=sort_by,
+        sort_order=sort_order,
+        page=page,
+        limit=limit,
+    )
 
 
 @router.get(
     "/{ticket_id}",
     response_model=TicketResponse,
     status_code=status.HTTP_200_OK,
-    summary="Get a single ticket by ID",
+    summary="Get a single ticket by ID"
 )
 def get_ticket(ticket_id: str, db: Session = Depends(get_db)):
-  return ticket_service.get_ticket_by_id(db=db, identifier=ticket_id)
+    return ticket_service.get_ticket_by_id(db=db, identifier=ticket_id)
 
 
 @router.put(
     "/{ticket_id}",
     response_model=TicketResponse,
     status_code=status.HTTP_200_OK,
-    summary="Update a ticket status",
+    summary="Update a ticket status"
 )
 def update_ticket(
     ticket_id: str,
     ticket_in: TicketUpdate,
     db: Session = Depends(get_db),
 ):
-  return ticket_service.update_ticket(
-      db=db, identifier=ticket_id, ticket_in=ticket_in
-  )
+    return ticket_service.update_ticket(db=db, identifier=ticket_id, ticket_in=ticket_in)
 
 
 @router.delete(
-    "/{ticket_id}", status_code=status.HTTP_200_OK, summary="Delete a ticket"
+    "/{ticket_id}",
+    status_code=status.HTTP_200_OK,
+    summary="Delete a ticket"
 )
 def delete_ticket(ticket_id: str, db: Session = Depends(get_db)):
-  return ticket_service.delete_ticket(db=db, identifier=ticket_id)
+    return ticket_service.delete_ticket(db=db, identifier=ticket_id)

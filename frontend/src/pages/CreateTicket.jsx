@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Send, Mail } from 'lucide-react';
+import { ArrowLeft, Send } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -11,13 +11,12 @@ export default function CreateTicket() {
 
   const [formData, setFormData] = useState({
     requester_name: currentUser?.full_name || 'Prof. Y.D.P (Faculty, CSE)',
-    requester_type: currentUser?.role === 'faculty' ? 'Faculty' : 'Student',
+    requester_type: 'Faculty',
     category: 'Computer/Lab',
     priority: 'Medium',
     location: 'Cotton Bhavan - CS Lab 3',
     issue_title: '',
     issue_description: '',
-    recipient_email: 'ganeshaddanki06@gmail.com',
   });
 
   const [submitting, setSubmitting] = useState(false);
@@ -42,8 +41,8 @@ export default function CreateTicket() {
         issue_description: formData.issue_description,
       };
 
-      const created = await api.post(`/tickets?recipient_email=${encodeURIComponent(formData.recipient_email)}`, payload);
-      alert(`Ticket ${created.ticket_id} created successfully! Live notification dispatched to ${formData.recipient_email}`);
+      const created = await api.post('/tickets', payload);
+      alert(`Ticket ${created.ticket_id} created successfully!`);
       navigate(`/tickets/${created.ticket_id}`);
     } catch (err) {
       setError(err.message || 'Failed to submit ticket.');
@@ -85,26 +84,6 @@ export default function CreateTicket() {
                 <option value="Staff">Department Staff</option>
               </select>
             </div>
-          </div>
-
-          <div className="form-group" style={{ marginBottom: '1.25rem' }}>
-            <label className="form-label">Email for Instant Alerts & Updates <span style={{ color: '#ef4444' }}>*</span></label>
-            <div style={{ position: 'relative' }}>
-              <input
-                type="email"
-                name="recipient_email"
-                required
-                placeholder="Enter email to receive live ticket confirmation"
-                value={formData.recipient_email}
-                onChange={handleChange}
-                className="form-input"
-                style={{ paddingLeft: '2.5rem' }}
-              />
-              <Mail style={{ width: '1.125rem', height: '1.125rem', color: '#38bdf8', position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)' }} />
-            </div>
-            <span style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.35rem' }}>
-              A real-time email notification with ticket details will be dispatched to this address.
-            </span>
           </div>
 
           <div className="form-grid" style={{ marginBottom: '1.25rem' }}>
@@ -150,7 +129,7 @@ export default function CreateTicket() {
             <button type="button" onClick={() => navigate('/tickets')} className="btn-secondary">Cancel</button>
             <button type="submit" disabled={submitting} className="btn-primary">
               <Send style={{ width: '1rem', height: '1rem', marginRight: '0.5rem' }} />
-              {submitting ? 'Submitting & Dispatching Alert...' : 'Submit Support Ticket'}
+              {submitting ? 'Submitting...' : 'Submit Support Ticket'}
             </button>
           </div>
         </form>
