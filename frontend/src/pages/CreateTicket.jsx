@@ -10,14 +10,14 @@ export default function CreateTicket() {
   const { currentUser } = useAuth();
 
   const [formData, setFormData] = useState({
-    requester_name: currentUser?.full_name || '',
+    requester_name: currentUser?.full_name || 'Prof. Y.D.P (Faculty, CSE)',
     requester_type: currentUser?.role === 'faculty' ? 'Faculty' : 'Student',
     category: 'Computer/Lab',
     priority: 'Medium',
     location: 'Cotton Bhavan - CS Lab 3',
     issue_title: '',
     issue_description: '',
-    notification_email: currentUser?.email || '', // ఎవరి ఈమెయిల్ అయినా ఇక్కడ టైప్ చేయవచ్చు
+    notification_email: currentUser?.email || 'ganeshaddanki06@gmail.com',
   });
 
   const [submitting, setSubmitting] = useState(false);
@@ -47,7 +47,7 @@ export default function CreateTicket() {
         : '';
 
       const created = await api.post(`/tickets${emailParam}`, payload);
-      alert(`Ticket ${created.ticket_id} created successfully! ${formData.notification_email ? `Notification dispatched to ${formData.notification_email}` : ''}`);
+      alert(`Ticket ${created.ticket_id} created successfully! Alert sent to ${formData.notification_email}`);
       navigate('/tickets');
     } catch (err) {
       setError(err.message || 'Failed to submit ticket.');
@@ -78,7 +78,7 @@ export default function CreateTicket() {
           <div className="form-grid" style={{ marginBottom: '1.25rem' }}>
             <div className="form-group">
               <label className="form-label">Requester Full Name <span style={{ color: '#ef4444' }}>*</span></label>
-              <input type="text" name="requester_name" required placeholder="Enter full name" value={formData.requester_name} onChange={handleChange} className="form-input" />
+              <input type="text" name="requester_name" required value={formData.requester_name} onChange={handleChange} className="form-input" />
             </div>
 
             <div className="form-group">
@@ -92,12 +92,13 @@ export default function CreateTicket() {
           </div>
 
           <div className="form-group" style={{ marginBottom: '1.25rem' }}>
-            <label className="form-label">Email for "Problem Raised" Notification</label>
+            <label className="form-label">Email for "Problem Raised" Alert <span style={{ color: '#ef4444' }}>*</span></label>
             <div style={{ position: 'relative' }}>
               <input
                 type="email"
                 name="notification_email"
-                placeholder="Enter faculty or student email address to receive notification"
+                required
+                placeholder="Enter email to receive real-time alert"
                 value={formData.notification_email}
                 onChange={handleChange}
                 className="form-input"
@@ -106,7 +107,7 @@ export default function CreateTicket() {
               <Mail style={{ width: '1.125rem', height: '1.125rem', color: '#38bdf8', position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)' }} />
             </div>
             <span style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.35rem' }}>
-              You can enter any valid email address here to receive the ticket status alert.
+              A real-time notification email will be dispatched to this address upon submission.
             </span>
           </div>
 
@@ -146,14 +147,14 @@ export default function CreateTicket() {
 
           <div className="form-group" style={{ marginBottom: '1.5rem' }}>
             <label className="form-label">Detailed Description <span style={{ color: '#ef4444' }}>*</span></label>
-            <textarea name="issue_description" rows="4" required placeholder="Describe what happened, error messages, etc." value={formData.issue_description} onChange={handleChange} className="form-textarea" />
+            <textarea name="issue_description" rows="4" required placeholder="Describe what happened, error messages displayed, etc." value={formData.issue_description} onChange={handleChange} className="form-textarea" />
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
             <button type="button" onClick={() => navigate('/tickets')} className="btn-secondary">Cancel</button>
             <button type="submit" disabled={submitting} className="btn-primary">
               <Send style={{ width: '1rem', height: '1rem', marginRight: '0.5rem' }} />
-              {submitting ? 'Submitting...' : 'Submit Support Ticket'}
+              {submitting ? 'Submitting & Dispatching Alert...' : 'Submit Support Ticket'}
             </button>
           </div>
         </form>

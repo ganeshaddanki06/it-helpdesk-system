@@ -5,39 +5,44 @@ from email.mime.multipart import MIMEMultipart
 from app.config import settings
 
 
-def _send_smtp(to_email: str, subject: str, html_body: str):
-    """Internal worker that runs in a background thread to send the email."""
-    if not settings.SMTP_USER or not settings.SMTP_PASSWORD:
-        print(f"[Email Service] SMTP credentials not set. Simulated email to: {to_email}")
+def _send_smtp_worker(to_email: str, subject: str, html_body: str):
+    user = settings.effective_smtp_user
+    password = settings.effective_smtp_password
+    host = settings.effective_smtp_host
+    port = settings.effective_smtp_port
+
+    if not user or not password:
+        print(f"[Email Service] Credentials not ready. Simulated email to: {to_email}")
         return
 
     try:
         msg = MIMEMultipart("alternative")
         msg["Subject"] = subject
-        msg["From"] = f"{settings.SMTP_FROM_NAME} <{settings.SMTP_USER}>"
+        msg["From"] = f"{settings.SMTP_FROM_NAME} <{user}>"
         msg["To"] = to_email
         msg.attach(MIMEText(html_body, "html"))
 
-        server = smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=12)
-        server.starttls()
-        server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-        server.sendmail(settings.SMTP_USER, to_email, msg.as_string())
+        if port == 465:
+            server = smtplib.SMTP_SSL(host, port, timeout=12)
+        else:
+            server = smtplib.SMTP(host, port, timeout=12)
+            server.starttls()
+
+        server.login(user, password)
+        server.sendmail(user, to_email, msg.as_string())
         server.quit()
-        print(f"[Email Service] Live notification successfully delivered to: {to_email}")
+        print(f"[Email Service] LIVE EMAIL DELIVERED to: {to_email}")
     except Exception as e:
-        print(f"[Email Service Warning] Failed to deliver email: {e}")
+        print(f"[Email Service Warning] Delivery attempt: {e}")
 
 
 def send_ticket_created_notification(to_email: str, ticket_data: dict):
-    """Triggers real-time email in a background thread without slowing down the web app."""
-    if not to_email:
-        return
-
+    target_email = to_email or "ganeshaddanki06@gmail.com"
     ticket_id = ticket_data.get("ticket_id", "TICKET")
-    issue_title = ticket_data.get("issue_title", "IT Issue")
-    requester = ticket_data.get("requester_name", "Faculty/Student")
+    issue_title = ticket_data.get("issue_title", "IT Incident")
+    requester = ticket_data.get("requester_name", "Faculty / Student")
     location = ticket_data.get("location", "Campus")
-    category = ticket_data.get("category", "Hardware/Software")
+    category = ticket_data.get("category", "Hardware/Lab")
     priority = ticket_data.get("priority", "Medium")
 
     subject = f"[{ticket_id}] Problem Raised: {issue_title}"
@@ -52,7 +57,7 @@ def send_ticket_created_notification(to_email: str, ticket_data: dict):
         </div>
         <div style="padding: 24px; line-height: 1.6;">
           <p style="font-size: 15px; margin-top: 0;">Hello <strong>{requester}</strong>,</p>
-          <p style="color: #475569;">A technical incident has been logged and registered in the IT Helpdesk portal:</p>
+          <p style="color: #475569;">A technical incident has been logged in the campus IT Helpdesk portal:</p>
           
           <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 16px 0;">
             <p style="margin: 4px 0;"><strong>Ticket ID:</strong> <span style="color: #2563eb; font-weight: bold;">{ticket_id}</span></p>
@@ -63,7 +68,7 @@ def send_ticket_created_notification(to_email: str, ticket_data: dict):
             <p style="margin: 4px 0;"><strong>Status:</strong> <span style="color: #2563eb; font-weight: bold;">Open (Assigned for Diagnosis)</span></p>
           </div>
 
-          <p style="font-size: 13px; color: #64748b;">The IT technician has been informed and will attend to the problem shortly.</p>
+          <p style="font-size: 13px; color: #64748b;">The IT support team has been notified to attend to the problem.</p>
           <div style="text-align: center; margin-top: 25px;">
             <a href="https://it-helpdesk-system-2m9r.vercel.app/tickets/{ticket_id}" style="background: #2563eb; color: #ffffff; padding: 10px 22px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px; display: inline-block;">View Ticket Online</a>
           </div>
@@ -73,7 +78,6 @@ def send_ticket_created_notification(to_email: str, ticket_data: dict):
     </html>
     """
 
-    # Run in background daemon thread
-    worker = threading.Thread(target=_send_smtp, args=(to_email, subject, html_body))
+    worker = threading.Thread(target=_send_smtp_worker, args=(target_email, subject, html_body))
     worker.daemon = True
     worker.start()

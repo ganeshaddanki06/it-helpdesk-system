@@ -1,50 +1,57 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Ticket, Server, ShieldAlert, LifeBuoy } from 'lucide-react';
+import { LayoutDashboard, Ticket, Server, Shield, X } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 export default function Sidebar({ isOpen, onClose }) {
-  const navItems = [
-    { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-    { name: 'Tickets', path: '/tickets', icon: Ticket },
-    { name: 'Assets', path: '/assets', icon: Server },
-    { name: 'Admin View', path: '/admin', icon: ShieldAlert },
-  ];
+  const { isAdmin } = useAuth();
 
   return (
     <>
-      {isOpen && <div className="sidebar-backdrop" onClick={onClose} />}
-
+      <div className={`sidebar-backdrop ${isOpen ? 'active' : ''}`} onClick={onClose} />
       <aside className={`sidebar ${isOpen ? 'sidebar-open' : ''}`}>
         <div className="sidebar-header">
           <div className="sidebar-logo">
-            <LifeBuoy style={{ width: '1.5rem', height: '1.5rem', color: '#60a5fa' }} />
             <span className="sidebar-title">IT Helpdesk</span>
+            <span className="sidebar-badge" style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}>
+              v1.0 Live
+            </span>
           </div>
-          <span className="sidebar-badge">DEMO</span>
+          <button className="sidebar-close-btn" onClick={onClose} aria-label="Close Sidebar" style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}>
+            <X style={{ width: '1.25rem', height: '1.25rem' }} />
+          </button>
         </div>
 
         <nav className="sidebar-nav">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                onClick={onClose}
-                className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
-              >
-                <Icon style={{ width: '1.25rem', height: '1.25rem' }} />
-                <span>{item.name}</span>
-              </NavLink>
-            );
-          })}
+          <NavLink to="/dashboard" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} onClick={onClose}>
+            <LayoutDashboard style={{ width: '1.25rem', height: '1.25rem' }} />
+            <span>Dashboard</span>
+          </NavLink>
+
+          <NavLink to="/tickets" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} onClick={onClose}>
+            <Ticket style={{ width: '1.25rem', height: '1.25rem' }} />
+            <span>Support Tickets</span>
+          </NavLink>
+
+          <NavLink to="/assets" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} onClick={onClose}>
+            <Server style={{ width: '1.25rem', height: '1.25rem' }} />
+            <span>Hardware Assets</span>
+          </NavLink>
+
+          {isAdmin && (
+            <NavLink to="/admin" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} onClick={onClose}>
+              <Shield style={{ width: '1.25rem', height: '1.25rem' }} />
+              <span>Staff Administration</span>
+            </NavLink>
+          )}
         </nav>
 
         <div className="sidebar-footer">
           <div className="system-status">
-            <div className="status-dot"></div>
-            <span>FastAPI Server Connected</span>
+            <span className="status-dot-pulse" />
+            <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>Campus Network Online</span>
           </div>
+          <p style={{ color: '#64748b', fontSize: '0.6875rem', marginTop: '0.35rem' }}>Institutional Helpdesk System</p>
         </div>
       </aside>
     </>

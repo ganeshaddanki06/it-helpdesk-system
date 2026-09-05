@@ -1,3 +1,4 @@
+import os
 from pydantic_settings import BaseSettings
 from typing import List, Union
 
@@ -23,9 +24,26 @@ class Settings(BaseSettings):
     # Live SMTP Email Settings
     SMTP_HOST: str = "smtp.gmail.com"
     SMTP_PORT: int = 587
-    SMTP_USER: str = ""        # మీ Gmail ID (e.g. ganeshaddanki06@gmail.com)
-    SMTP_PASSWORD: str = ""    # మీ 16-అక్షరాల Gmail App Password
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
     SMTP_FROM_NAME: str = "ACET IT Support"
+
+    @property
+    def effective_smtp_user(self) -> str:
+        return self.SMTP_USER or os.getenv("MAIL_USERNAME") or os.getenv("SMTP_USER") or "ganeshaddanki06@gmail.com"
+
+    @property
+    def effective_smtp_password(self) -> str:
+        pwd = self.SMTP_PASSWORD or os.getenv("MAIL_PASSWORD") or os.getenv("SMTP_PASSWORD") or ""
+        return pwd.replace(" ", "")
+
+    @property
+    def effective_smtp_host(self) -> str:
+        return os.getenv("MAIL_SERVER") or os.getenv("SMTP_HOST") or self.SMTP_HOST or "smtp.gmail.com"
+
+    @property
+    def effective_smtp_port(self) -> int:
+        return int(os.getenv("MAIL_PORT") or os.getenv("SMTP_PORT") or self.SMTP_PORT or 587)
 
     @property
     def cors_origins(self) -> List[str]:
