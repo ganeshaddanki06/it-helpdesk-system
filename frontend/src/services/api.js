@@ -1,9 +1,7 @@
 import axios from 'axios';
 
-const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-
 const api = axios.create({
-  baseURL: isLocal ? 'http://127.0.0.1:8000/api/v1' : '/api/v1',
+  baseURL: 'https://it-helpdesk-system-2aj3.onrender.com/api/v1',
   timeout: 45000,
   headers: {
     'Content-Type': 'application/json',
@@ -24,7 +22,7 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response.data,
   (error) => {
-    let errorMessage = 'Network error: Server is unreachable.';
+    let errorMessage = 'Network error or server is unavailable.';
     if (error.response && error.response.data) {
       errorMessage = error.response.data.detail || error.response.data.message || JSON.stringify(error.response.data);
     } else if (error.message) {
