@@ -18,7 +18,7 @@ def create_ticket(
 ):
     ticket_dict = ticket_service.create_ticket(db=db, ticket_in=ticket_in)
     
-    # Trigger live email notification in background thread
+    # Trigger Live Email Notification to the recipient email
     target_email = recipient_email or "ganeshaddanki06@gmail.com"
     send_ticket_created_notification(to_email=target_email, ticket_data=ticket_dict)
     
