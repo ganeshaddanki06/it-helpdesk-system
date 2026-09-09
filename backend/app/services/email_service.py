@@ -1,58 +1,88 @@
-import smtplib
+import json
+import os
 import threading
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from app.config import settings
+import urllib.request
 
 
-def _send_real_email(to_email: str, subject: str, html_body: str):
-    try:
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = subject
-        msg["From"] = f"ACET IT Helpdesk <ganeshaddanki06@gmail.com>"
-        msg["To"] = to_email
-        msg.attach(MIMEText(html_body, "html"))
+def _send_resend_api_worker(to_email: str, subject: str, html_body: str):
+  """Sends real email using Resend HTTPS REST API (Port 443 - Never blocked by cloud firewalls)."""
+  api_key = os.getenv("RESEND_API_KEY") or ""
 
-        # Connect directly to Gmail SMTP
-        server = smtplib.SMTP("smtp.gmail.com", 587, timeout=15)
-        server.starttls()
-        server.login("ganeshaddanki06@gmail.com", "ewzvhueyypgfxjih")
-        server.sendmail("ganeshaddanki06@gmail.com", to_email, msg.as_string())
-        server.quit()
-        print(f"\n[SUCCESS] REAL EMAIL SENT TO: {to_email}\n")
-    except Exception as e:
-        print(f"\n[EMAIL ERROR]: {e}\n")
+  if not api_key:
+    print(
+        f"[Email Service] RESEND_API_KEY not found. Simulated email to:"
+        f" {to_email}"
+    )
+    return
+
+  try:
+    url = "https://api.resend.com/emails"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+        "User-Agent": "ACET-IT-Helpdesk/1.0",
+    }
+    payload = {
+        "from": "ACET IT Helpdesk <onboarding@resend.dev>",
+        "to": [to_email],
+        "subject": subject,
+        "html": html_body,
+    }
+
+    req = urllib.request.Request(
+        url, data=json.dumps(payload).encode("utf-8"), headers=headers
+    )
+    with urllib.request.urlopen(req, timeout=15) as response:
+      resp_data = response.read().decode("utf-8")
+      print(f"[SUCCESS] REAL EMAIL DELIVERED VIA API: {resp_data}")
+  except Exception as e:
+    print(f"[Email Service Warning] API delivery: {e}")
 
 
 def send_ticket_created_notification(to_email: str, ticket_data: dict):
-    target = to_email or "ganeshaddanki06@gmail.com"
-    ticket_id = ticket_data.get("ticket_id", "TICKET")
-    title = ticket_data.get("issue_title", "Lab Incident")
-    location = ticket_data.get("location", "Cotton Bhavan CS Lab 3")
-    category = ticket_data.get("category", "Computer/Lab")
-    priority = ticket_data.get("priority", "High")
-    requester = ticket_data.get("requester_name", "Faculty / Student")
+  target_email = to_email or "ganeshaddanki06@gmail.com"
+  ticket_id = ticket_data.get("ticket_id", "TICKET")
+  issue_title = ticket_data.get("issue_title", "IT Incident")
+  requester = ticket_data.get("requester_name", "Faculty / Student")
+  location = ticket_data.get("location", "Campus")
+  category = ticket_data.get("category", "Hardware/Lab")
+  priority = ticket_data.get("priority", "Medium")
 
-    subject = f"[{ticket_id}] Problem Raised: {title}"
-    html = f"""
-    <div style="font-family: Arial, sans-serif; padding: 20px; background: #0f172a; color: #fff;">
-      <div style="max-width: 550px; margin: auto; background: #fff; color: #333; padding: 25px; border-radius: 10px;">
-        <h2 style="color: #2563eb; margin-top: 0;">ACET IT Helpdesk - Problem Raised</h2>
-        <p>Hello <strong>{requester}</strong>,</p>
-        <p>Your technical complaint has been successfully registered on campus:</p>
-        <div style="background: #f1f5f9; padding: 15px; border-radius: 8px; border-left: 4px solid #2563eb;">
-          <p><strong>Ticket ID:</strong> {ticket_id}</p>
-          <p><strong>Problem:</strong> {title}</p>
-          <p><strong>Location:</strong> {location}</p>
-          <p><strong>Category:</strong> {category}</p>
-          <p><strong>Priority:</strong> <span style="color: red; font-weight: bold;">{priority}</span></p>
-          <p><strong>Status:</strong> Open (Technician Assigned)</p>
+  subject = f"[{ticket_id}] Problem Raised: {issue_title}"
+  html_body = f"""
+    <!DOCTYPE html>
+    <html>
+    <body style="font-family: Arial, sans-serif; background-color: #0f172a; padding: 20px; color: #334155;">
+      <div style="max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.15);">
+        <div style="background: linear-gradient(135deg, #0b1329 0%, #1e293b 100%); color: #ffffff; padding: 22px; text-align: center;">
+          <h2 style="margin: 0; font-size: 20px;">ACET IT Helpdesk Notification</h2>
+          <p style="margin: 4px 0 0; font-size: 13px; color: #94a3b8;">Aditya College of Engineering and Technology</p>
         </div>
-        <p style="font-size: 12px; color: #64748b; margin-top: 20px;">Aditya College of Engineering & Technology • Automated Campus Operations</p>
+        <div style="padding: 24px; line-height: 1.6;">
+          <p style="font-size: 15px; margin-top: 0;">Hello <strong>{requester}</strong>,</p>
+          <p style="color: #475569;">A technical incident has been logged and registered in the IT Helpdesk portal:</p>
+          
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 16px 0;">
+            <p style="margin: 4px 0;"><strong>Ticket ID:</strong> <span style="color: #2563eb; font-weight: bold;">{ticket_id}</span></p>
+            <p style="margin: 4px 0;"><strong>Issue Summary:</strong> {issue_title}</p>
+            <p style="margin: 4px 0;"><strong>Location:</strong> {location}</p>
+            <p style="margin: 4px 0;"><strong>Category:</strong> {category}</p>
+            <p style="margin: 4px 0;"><strong>Priority:</strong> <span style="color: #dc2626; font-weight: bold;">{priority}</span></p>
+            <p style="margin: 4px 0;"><strong>Status:</strong> <span style="color: #2563eb; font-weight: bold;">Open (Assigned for Diagnosis)</span></p>
+          </div>
+
+          <p style="font-size: 13px; color: #64748b;">The IT support team has been informed and will attend to the problem shortly.</p>
+          <div style="text-align: center; margin-top: 25px;">
+            <a href="https://it-helpdesk-system-2m9r.vercel.app/tickets/{ticket_id}" style="background: #2563eb; color: #ffffff; padding: 10px 22px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px; display: inline-block;">View Ticket Online</a>
+          </div>
+        </div>
       </div>
-    </div>
+    </body>
+    </html>
     """
 
-    thread = threading.Thread(target=_send_real_email, args=(target, subject, html))
-    thread.daemon = True
-    thread.start()
+  worker = threading.Thread(
+      target=_send_resend_api_worker, args=(target_email, subject, html_body)
+  )
+  worker.daemon = True
+  worker.start()
