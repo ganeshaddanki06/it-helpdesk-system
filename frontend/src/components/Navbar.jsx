@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Menu, Bell, User, LogOut, KeyRound, X, CheckCircle2, AlertTriangle, Info, Clock, Building, ShieldCheck } from 'lucide-react';
+import { Menu, Bell, User, LogOut, KeyRound, X, CheckCircle2, AlertTriangle, Info, Clock, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { authService } from '../services/authService';
 
@@ -104,7 +104,7 @@ export default function Navbar({ onMenuToggle }) {
 
   return (
     <>
-      <header className="navbar" style={{ position: 'relative' }}>
+      <header className="navbar" style={{ position: 'relative', zIndex: 40 }}>
         <div className="navbar-left">
           <button className="menu-btn" onClick={onMenuToggle} aria-label="Toggle Menu">
             <Menu style={{ width: '1.25rem', height: '1.25rem' }} />
@@ -112,30 +112,41 @@ export default function Navbar({ onMenuToggle }) {
           <span className="navbar-system-name">IT Helpdesk & Asset Management System</span>
         </div>
 
-        <div className="navbar-right">
-          {/* Notification Bell Button */}
+        <div className="navbar-right" style={{ position: 'relative' }}>
+          {/* Notification Bell Container */}
           <div style={{ position: 'relative' }}>
             <button
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 setShowNotifications(!showNotifications);
                 setShowAccountModal(false);
               }}
               className="notification-btn"
               title="Campus IT Alerts"
-              style={{ background: 'none', border: 'none', position: 'relative', cursor: 'pointer' }}
+              style={{
+                background: showNotifications ? 'rgba(56, 189, 248, 0.15)' : 'none',
+                border: 'none',
+                position: 'relative',
+                cursor: 'pointer',
+                padding: '0.625rem',
+                borderRadius: '0.625rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
             >
               <Bell style={{ width: '1.35rem', height: '1.35rem', color: showNotifications ? '#38bdf8' : '#94a3b8' }} />
               {unreadCount > 0 && (
                 <span style={{
                   position: 'absolute',
-                  top: '2px',
-                  right: '2px',
+                  top: '4px',
+                  right: '4px',
                   width: '18px',
                   height: '18px',
                   borderRadius: '50%',
                   backgroundColor: '#ef4444',
                   color: '#ffffff',
-                  fontSize: '0.625rem',
+                  fontSize: '0.65rem',
                   fontWeight: 800,
                   display: 'flex',
                   alignItems: 'center',
@@ -149,65 +160,73 @@ export default function Navbar({ onMenuToggle }) {
 
             {/* Notification Dropdown Menu */}
             {showNotifications && (
-              <div className="card" style={{
-                position: 'absolute',
-                top: '48px',
-                right: '-40px',
-                width: '360px',
-                zIndex: 60,
-                padding: '0',
-                boxShadow: '0 20px 35px -5px rgba(0, 0, 0, 0.6)',
-                border: '1px solid var(--border-glass)'
-              }}>
-                <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid var(--border-glass)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <span style={{ fontWeight: 700, fontSize: '0.9375rem', color: '#ffffff' }}>Notifications</span>
+              <>
+                {/* Backdrop to close on click outside */}
+                <div
+                  style={{ position: 'fixed', inset: 0, zIndex: 80 }}
+                  onClick={() => setShowNotifications(false)}
+                />
+                <div className="card" style={{
+                  position: 'absolute',
+                  top: '52px',
+                  right: '0px',
+                  width: 'min(360px, 92vw)',
+                  zIndex: 90,
+                  padding: '0',
+                  boxShadow: '0 20px 45px rgba(0, 0, 0, 0.7)',
+                  border: '1px solid var(--border-glass)',
+                  backgroundColor: '#0f172a'
+                }}>
+                  <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid var(--border-glass)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#1e293b' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ fontWeight: 700, fontSize: '0.9375rem', color: '#ffffff' }}>Campus Notifications</span>
+                      {unreadCount > 0 && (
+                        <span style={{ backgroundColor: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', fontSize: '0.6875rem', fontWeight: 700, padding: '0.15rem 0.5rem', borderRadius: '9999px' }}>
+                          {unreadCount} New
+                        </span>
+                      )}
+                    </div>
                     {unreadCount > 0 && (
-                      <span style={{ backgroundColor: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', fontSize: '0.6875rem', fontWeight: 700, padding: '0.15rem 0.5rem', borderRadius: '9999px' }}>
-                        {unreadCount} New
-                      </span>
+                      <button onClick={markAllAsRead} style={{ background: 'none', border: 'none', color: '#38bdf8', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}>
+                        Mark all read
+                      </button>
                     )}
                   </div>
-                  {unreadCount > 0 && (
-                    <button onClick={markAllAsRead} style={{ background: 'none', border: 'none', color: '#38bdf8', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}>
-                      Mark all read
-                    </button>
-                  )}
-                </div>
 
-                <div style={{ maxHeight: '320px', overflowY: 'auto' }}>
-                  {notifications.map((n) => (
-                    <div key={n.id} style={{
-                      padding: '0.875rem 1.25rem',
-                      borderBottom: '1px solid rgba(255, 255, 255, 0.04)',
-                      backgroundColor: n.read ? 'transparent' : 'rgba(56, 189, 248, 0.04)',
-                      display: 'flex',
-                      gap: '0.75rem'
-                    }}>
-                      <div style={{ marginTop: '2px' }}>
-                        {n.type === 'success' && <CheckCircle2 style={{ width: '1rem', height: '1rem', color: '#10b981' }} />}
-                        {n.type === 'warning' && <AlertTriangle style={{ width: '1rem', height: '1rem', color: '#f59e0b' }} />}
-                        {n.type === 'info' && <Info style={{ width: '1rem', height: '1rem', color: '#38bdf8' }} />}
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: n.read ? '#cbd5e1' : '#ffffff' }}>{n.title}</div>
-                        <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.2rem' }}>{n.desc}</div>
-                        <div style={{ fontSize: '0.6875rem', color: '#64748b', marginTop: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                          <Clock style={{ width: '0.75rem', height: '0.75rem' }} /> {n.time}
+                  <div style={{ maxHeight: '320px', overflowY: 'auto' }}>
+                    {notifications.map((n) => (
+                      <div key={n.id} style={{
+                        padding: '0.875rem 1.25rem',
+                        borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+                        backgroundColor: n.read ? 'transparent' : 'rgba(56, 189, 248, 0.05)',
+                        display: 'flex',
+                        gap: '0.75rem'
+                      }}>
+                        <div style={{ marginTop: '2px' }}>
+                          {n.type === 'success' && <CheckCircle2 style={{ width: '1rem', height: '1rem', color: '#10b981' }} />}
+                          {n.type === 'warning' && <AlertTriangle style={{ width: '1rem', height: '1rem', color: '#f59e0b' }} />}
+                          {n.type === 'info' && <Info style={{ width: '1rem', height: '1rem', color: '#38bdf8' }} />}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: n.read ? '#cbd5e1' : '#ffffff' }}>{n.title}</div>
+                          <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.2rem' }}>{n.desc}</div>
+                          <div style={{ fontSize: '0.6875rem', color: '#64748b', marginTop: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                            <Clock style={{ width: '0.75rem', height: '0.75rem' }} /> {n.time}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
 
-                <div style={{ padding: '0.75rem', textAlign: 'center', borderTop: '1px solid var(--border-glass)', fontSize: '0.75rem' }}>
-                  <span style={{ color: '#64748b' }}>Campus IT Alert Relay Online</span>
+                  <div style={{ padding: '0.75rem', textAlign: 'center', borderTop: '1px solid var(--border-glass)', fontSize: '0.75rem', backgroundColor: '#1e293b' }}>
+                    <span style={{ color: '#94a3b8' }}>Live Campus Operations Feed</span>
+                  </div>
                 </div>
-              </div>
+              </>
             )}
           </div>
 
-          {/* User Profile Pill (Clickable to open Profile Details) */}
+          {/* User Profile Pill (Clickable for Profile Details) */}
           {currentUser ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
               <div
@@ -280,7 +299,7 @@ export default function Navbar({ onMenuToggle }) {
         </div>
       </header>
 
-      {/* Account Details Modal (Opens when user clicks their Profile Pill) */}
+      {/* Account Details Modal */}
       {showAccountModal && currentUser && (
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '1rem' }}>
           <div className="card" style={{ width: '100%', maxWidth: '440px', padding: '2rem', position: 'relative' }}>
