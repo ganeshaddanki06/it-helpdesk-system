@@ -4,24 +4,30 @@ import threading
 import urllib.request
 
 
-def _send_resend_worker(to_email: str, subject: str, html_body: str):
-  """Sends live email directly to your Gmail inbox using Resend API."""
-  api_key = (
-      os.getenv("RESEND_API_KEY") or "re_T4MGAGvo_DNfdYPRJTswNY9L65uQdcUxe"
-  ).strip()
+def _send_brevo_worker(to_email: str, subject: str, html_body: str):
+  """Sends live email to ANY recipient using Brevo HTTPS REST API."""
+  api_key = (os.getenv("BREVO_API_KEY") or "").strip()
+
+  if not api_key:
+    print(f"[Email Service] BREVO_API_KEY missing. Cannot send to: {to_email}")
+    return
 
   try:
-    url = "https://api.resend.com/emails"
+    url = "https://api.brevo.com/v3/smtp/email"
     headers = {
-        "Authorization": f"Bearer {api_key}",
+        "api-key": api_key,
         "Content-Type": "application/json",
+        "accept": "application/json",
         "User-Agent": "ACET-IT-Helpdesk/1.0",
     }
     payload = {
-        "from": "ACET IT Helpdesk <onboarding@resend.dev>",
-        "to": ["ganeshaddanki06@gmail.com"],
+        "sender": {
+            "name": "ACET IT Helpdesk",
+            "email": "ganeshaddanki06@gmail.com",
+        },
+        "to": [{"email": to_email}],
         "subject": subject,
-        "html": html_body,
+        "htmlContent": html_body,
     }
 
     req = urllib.request.Request(
@@ -29,12 +35,15 @@ def _send_resend_worker(to_email: str, subject: str, html_body: str):
     )
     with urllib.request.urlopen(req, timeout=12) as response:
       resp_data = response.read().decode("utf-8")
-      print(f"[SUCCESS] LIVE EMAIL DELIVERED: {resp_data}")
+      print(f"[SUCCESS] EMAIL DELIVERED TO {to_email}: {resp_data}")
   except Exception as e:
-    print(f"[Email Service Warning]: {e}")
+    print(f"[Email Service Warning] Brevo failed for {to_email}: {e}")
 
 
 def send_ticket_created_notification(to_email: str, ticket_data: dict):
+  if not to_email:
+    return
+
   ticket_id = ticket_data.get("ticket_id", "TICKET")
   issue_title = ticket_data.get("issue_title", "IT Incident")
   requester = ticket_data.get("requester_name", "Faculty / Student")
@@ -54,7 +63,7 @@ def send_ticket_created_notification(to_email: str, ticket_data: dict):
         </div>
         <div style="padding: 24px; line-height: 1.6;">
           <p style="font-size: 15px; margin-top: 0;">Hello <strong>{requester}</strong>,</p>
-          <p style="color: #475569;">A technical incident has been reported and registered in the IT Helpdesk portal:</p>
+          <p style="color: #475569;">A technical incident has been logged and registered in the IT Helpdesk portal:</p>
           
           <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 16px 0;">
             <p style="margin: 4px 0;"><strong>Ticket ID:</strong> <span style="color: #2563eb; font-weight: bold;">{ticket_id}</span></p>
@@ -76,8 +85,7 @@ def send_ticket_created_notification(to_email: str, ticket_data: dict):
     """
 
   worker = threading.Thread(
-      target=_send_resend_worker,
-      args=("ganeshaddanki06@gmail.com", subject, html_body),
+      target=_send_brevo_worker, args=(to_email, subject, html_body)
   )
   worker.daemon = True
   worker.start()
