@@ -1,42 +1,58 @@
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 import json
 import os
 import threading
 import urllib.request
 
 
-def _send_resend_worker(to_email: str, subject: str, html_body: str):
-  api_key = (
-      os.getenv("RESEND_API_KEY") or "re_T4MGAGvo_DNfdYPRJTswNY9L65uQdcUxe"
-  ).strip()
+def _send_brevo_worker(to_email: str, subject: str, html_body: str):
+  """Sends live email to ANY recipient using Brevo HTTPS REST API."""
+  api_key = (os.getenv("BREVO_API_KEY") or "").strip()
+
+  if not api_key:
+    print(
+        f"[Email Service] BREVO_API_KEY not configured. Cannot send to:"
+        f" {to_email}",
+        flush=True,
+    )
+    return
 
   try:
-    url = "https://api.resend.com/emails"
+    url = "https://api.brevo.com/v3/smtp/email"
     headers = {
-        "Authorization": f"Bearer {api_key}",
+        "api-key": api_key,
         "Content-Type": "application/json",
+        "accept": "application/json",
         "User-Agent": "ACET-IT-Helpdesk/1.0",
     }
     payload = {
-        "from": "ACET IT Helpdesk <onboarding@resend.dev>",
-        "to": [to_email],
+        "sender": {
+            "name": "ACET IT Helpdesk",
+            "email": "ganeshaddanki06@gmail.com",
+        },
+        "to": [{"email": to_email}],
         "subject": subject,
-        "html": html_body,
+        "htmlContent": html_body,
     }
 
     req = urllib.request.Request(
         url, data=json.dumps(payload).encode("utf-8"), headers=headers
     )
-    with urllib.request.urlopen(req, timeout=12) as response:
+    with urllib.request.urlopen(req, timeout=15) as response:
       resp_data = response.read().decode("utf-8")
-      print(f"[SUCCESS] EMAIL DELIVERED to {to_email}: {resp_data}")
+      print(
+          f"[SUCCESS] EMAIL DELIVERED TO ANY RECIPIENT {to_email}: {resp_data}",
+          flush=True,
+      )
   except Exception as e:
-    print(f"[Email Service Warning]: {e}")
+    print(
+        f"[Email Service Warning] Brevo failed for {to_email}: {e}", flush=True
+    )
 
 
 def send_ticket_created_notification(to_email: str, ticket_data: dict):
-  target_email = to_email or "ganeshaddanki06@gmail.com"
+  if not to_email:
+    return
+
   ticket_id = ticket_data.get("ticket_id", "TICKET")
   issue_title = ticket_data.get("issue_title", "IT Incident")
   requester = ticket_data.get("requester_name", "Faculty / Student")
@@ -56,7 +72,8 @@ def send_ticket_created_notification(to_email: str, ticket_data: dict):
         </div>
         <div style="padding: 24px; line-height: 1.6;">
           <p style="font-size: 15px; margin-top: 0;">Hello <strong>{requester}</strong>,</p>
-          <p style="color: #475569;">A technical incident has been reported and registered in the IT Helpdesk portal:</p>
+          <p style="color: #475569;">A technical problem has been reported and registered in the IT Helpdesk portal:</p>
+          
           <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 16px 0;">
             <p style="margin: 4px 0;"><strong>Ticket ID:</strong> <span style="color: #2563eb; font-weight: bold;">{ticket_id}</span></p>
             <p style="margin: 4px 0;"><strong>Issue Summary:</strong> {issue_title}</p>
@@ -65,6 +82,8 @@ def send_ticket_created_notification(to_email: str, ticket_data: dict):
             <p style="margin: 4px 0;"><strong>Priority:</strong> <span style="color: #dc2626; font-weight: bold;">{priority}</span></p>
             <p style="margin: 4px 0;"><strong>Status:</strong> <span style="color: #2563eb; font-weight: bold;">Open (Assigned for Diagnosis)</span></p>
           </div>
+
+          <p style="font-size: 13px; color: #64748b;">The IT support team has been informed and will attend to the problem shortly.</p>
           <div style="text-align: center; margin-top: 25px;">
             <a href="https://it-helpdesk-system-2m9r.vercel.app/tickets/{ticket_id}" style="background: #2563eb; color: #ffffff; padding: 10px 22px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px; display: inline-block;">View Ticket Online</a>
           </div>
@@ -73,16 +92,19 @@ def send_ticket_created_notification(to_email: str, ticket_data: dict):
     </body>
     </html>
     """
+
   worker = threading.Thread(
-      target=_send_resend_worker, args=(target_email, subject, html_body)
+      target=_send_brevo_worker, args=(to_email, subject, html_body)
   )
   worker.daemon = True
   worker.start()
 
 
 def send_password_reset_email(to_email: str, username: str, temp_pass: str):
-  """Sends a temporary password to user's registered email."""
-  target_email = to_email or "ganeshaddanki06@gmail.com"
+  """Dispatches temporary password reset email to user's registered email."""
+  if not to_email:
+    return
+
   subject = "[ACET IT Helpdesk] Account Password Reset"
   html_body = f"""
     <!DOCTYPE html>
@@ -94,7 +116,7 @@ def send_password_reset_email(to_email: str, username: str, temp_pass: str):
           <p style="color: #64748b; font-size: 13px; margin-top: 4px;">Password Reset Instructions</p>
         </div>
         <p>Hello <strong>{username}</strong>,</p>
-        <p>A password reset request was received for your IT Helpdesk portal account.</p>
+        <p>A password reset request was received for your IT Helpdesk account.</p>
         
         <div style="background: #f8fafc; border: 1px dashed #2563eb; border-radius: 8px; padding: 18px; margin: 20px 0; text-align: center;">
           <p style="margin: 0; color: #64748b; font-size: 13px; text-transform: uppercase; font-weight: bold;">Your Temporary Password</p>
@@ -110,8 +132,9 @@ def send_password_reset_email(to_email: str, username: str, temp_pass: str):
     </body>
     </html>
     """
+
   worker = threading.Thread(
-      target=_send_resend_worker, args=(target_email, subject, html_body)
+      target=_send_brevo_worker, args=(to_email, subject, html_body)
   )
   worker.daemon = True
   worker.start()
