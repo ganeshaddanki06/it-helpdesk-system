@@ -10,10 +10,12 @@ import ErrorMessage from '../components/ErrorMessage';
 
 import { ticketService } from '../services/ticketService';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 export default function TicketDetail() {
   const { ticketId } = useParams();
   const navigate = useNavigate();
+  const { isAdmin } = useAuth(); // Check if current logged-in user is Admin
 
   const [ticket, setTicket] = useState(null);
   const [technicians, setTechnicians] = useState([]);
@@ -31,14 +33,12 @@ export default function TicketDetail() {
       setLoading(true);
       setError(null);
       
-      // 1. Fetch Ticket Data
       const res = await ticketService.getTicket(ticketId);
       setTicket(res);
       setStatus(res.status);
       setAssignedTechId(res.assigned_technician_id || '');
       setResolutionNotes(res.resolution_notes || '');
 
-      // 2. Safely Fetch Technicians for Dropdown
       try {
         const techs = await api.get('/technicians');
         setTechnicians(techs || []);
@@ -79,6 +79,11 @@ export default function TicketDetail() {
   };
 
   const handleDelete = async () => {
+    if (!isAdmin) {
+      alert('Unauthorized: Only an Administrator can delete tickets.');
+      return;
+    }
+
     if (window.confirm(`Are you sure you want to permanently delete ticket ${ticketId}?`)) {
       try {
         await ticketService.deleteTicket(ticketId);
@@ -96,7 +101,7 @@ export default function TicketDetail() {
 
   return (
     <div className="ticket-detail-page">
-      <Link to="/tickets" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', color: '#64748b', fontSize: '0.875rem', marginBottom: '1rem', fontWeight: 500 }}>
+      <Link to="/tickets" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', color: '#94a3b8', fontSize: '0.875rem', marginBottom: '1rem', fontWeight: 500 }}>
         <ArrowLeft style={{ width: '1rem', height: '1rem' }} /> Back to Tickets List
       </Link>
 
@@ -107,43 +112,44 @@ export default function TicketDetail() {
           <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
             <StatusBadge status={ticket.status} />
             <PriorityBadge priority={ticket.priority} />
-            <button onClick={handleDelete} className="btn-secondary" style={{ color: '#dc2626', borderColor: '#fecaca', marginLeft: '0.5rem' }}>
-              <Trash2 style={{ width: '1rem', height: '1rem', marginRight: '0.25rem' }} /> Delete
-            </button>
+            {/* ONLY ADMIN CAN SEE THE DELETE BUTTON */}
+            {isAdmin && (
+              <button onClick={handleDelete} className="btn-secondary" style={{ color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.3)', backgroundColor: 'rgba(239, 68, 68, 0.1)', marginLeft: '0.5rem' }}>
+                <Trash2 style={{ width: '1rem', height: '1rem', marginRight: '0.25rem' }} /> Delete
+              </button>
+            )}
           </div>
         }
       />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem', marginTop: '1.5rem' }}>
-        {/* Left Column */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           <div className="card" style={{ padding: '1.5rem' }}>
-            <h3 style={{ fontSize: '1.125rem', fontWeight: 600, color: '#0f172a', marginBottom: '1rem' }}>{ticket.issue_title}</h3>
-            <p style={{ color: '#334155', fontSize: '0.9375rem', lineHeight: 1.6, whiteSpace: 'pre-wrap', backgroundColor: '#f8fafc', padding: '1rem', borderRadius: '0.5rem', border: '1px solid #e2e8f0' }}>
+            <h3 style={{ fontSize: '1.125rem', fontWeight: 600, color: '#ffffff', marginBottom: '1rem' }}>{ticket.issue_title}</h3>
+            <p style={{ color: '#cbd5e1', fontSize: '0.9375rem', lineHeight: 1.6, whiteSpace: 'pre-wrap', backgroundColor: 'rgba(15, 23, 42, 0.6)', padding: '1rem', borderRadius: '0.5rem', border: '1px solid var(--border-glass)' }}>
               {ticket.issue_description}
             </p>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid var(--border-glass)' }}>
               <div>
-                <span style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>Location</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginTop: '0.25rem', color: '#0f172a', fontWeight: 500 }}>
-                  <MapPin style={{ width: '1rem', height: '1rem', color: '#2563eb' }} /> {ticket.location}
+                <span style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 600 }}>Location</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginTop: '0.25rem', color: '#f8fafc', fontWeight: 500 }}>
+                  <MapPin style={{ width: '1rem', height: '1rem', color: '#38bdf8' }} /> {ticket.location}
                 </div>
               </div>
 
               <div>
-                <span style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>Category</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginTop: '0.25rem', color: '#0f172a', fontWeight: 500 }}>
-                  <Tag style={{ width: '1rem', height: '1rem', color: '#4f46e5' }} /> {ticket.category}
+                <span style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 600 }}>Category</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginTop: '0.25rem', color: '#f8fafc', fontWeight: 500 }}>
+                  <Tag style={{ width: '1rem', height: '1rem', color: '#818cf8' }} /> {ticket.category}
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Audit History Timeline */}
           <div className="card" style={{ padding: '1.5rem' }}>
-            <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#1e293b', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <History style={{ width: '1.25rem', height: '1.25rem', color: '#2563eb' }} /> Status History & Audit Timeline
+            <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#f8fafc', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <History style={{ width: '1.25rem', height: '1.25rem', color: '#38bdf8' }} /> Status History & Audit Timeline
             </h3>
 
             {ticket.history?.length === 0 ? (
@@ -155,15 +161,15 @@ export default function TicketDetail() {
                     <div className="timeline-dot" />
                     <div style={{ flex: 1 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontWeight: 600, fontSize: '0.875rem', color: '#0f172a' }}>
+                        <span style={{ fontWeight: 600, fontSize: '0.875rem', color: '#f8fafc' }}>
                           {h.old_status ? `${h.old_status} → ${h.new_status}` : `Status: ${h.new_status}`}
                         </span>
                         <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
                           {new Date(h.created_at).toLocaleString()}
                         </span>
                       </div>
-                      <p style={{ fontSize: '0.8125rem', color: '#475569', marginTop: '0.25rem' }}>{h.notes || 'Status updated.'}</p>
-                      <span style={{ fontSize: '0.6875rem', color: '#94a3b8' }}>Changed by: {h.changed_by}</span>
+                      <p style={{ fontSize: '0.8125rem', color: '#94a3b8', marginTop: '0.25rem' }}>{h.notes || 'Status updated.'}</p>
+                      <span style={{ fontSize: '0.6875rem', color: '#64748b' }}>Changed by: {h.changed_by}</span>
                     </div>
                   </div>
                 ))}
@@ -172,13 +178,12 @@ export default function TicketDetail() {
           </div>
         </div>
 
-        {/* Right Column: Status Update Box */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           <div className="card" style={{ padding: '1.5rem' }}>
-            <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#1e293b', marginBottom: '1rem' }}>Update Status & Assignment</h3>
+            <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#f8fafc', marginBottom: '1rem' }}>Update Status & Assignment</h3>
 
             {updateMsg && (
-              <div style={{ backgroundColor: '#ecfdf5', border: '1px solid #a7f3d0', color: '#065f46', padding: '0.75rem', borderRadius: '0.5rem', marginBottom: '1rem', fontSize: '0.875rem' }}>
+              <div style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', border: '1px solid #10b981', color: '#34d399', padding: '0.75rem', borderRadius: '0.5rem', marginBottom: '1rem', fontSize: '0.875rem' }}>
                 {updateMsg}
               </div>
             )}
@@ -205,10 +210,10 @@ export default function TicketDetail() {
               </div>
 
               <div className="form-group" style={{ marginBottom: '1.25rem' }}>
-                <label className="form-label">Resolution / Troubleshooting Notes</label>
+                <label className="form-label">Resolution Notes</label>
                 <textarea
                   rows="4"
-                  placeholder="Notes on replacement parts, configuration changes, or root cause..."
+                  placeholder="Notes on replacement parts, diagnosis..."
                   value={resolutionNotes}
                   onChange={(e) => setResolutionNotes(e.target.value)}
                   className="form-textarea"
