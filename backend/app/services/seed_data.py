@@ -1,99 +1,379 @@
+from sqlalchemy.orm import Session
+from app.models.user import User
+from app.models.technician import Technician
+from app.models.asset import Asset
+from app.models.ticket import Ticket
+from app.models.history import TicketHistory
+from app.models.enums import UserRole, AssetType, AssetStatus
 from app.auth.security import get_password_hash
 from app.config import settings
-from app.models.asset import Asset
-from app.models.enums import (
-    AssetStatus,
-    AssetType,
-    RequesterType,
-    TicketCategory,
-    TicketPriority,
-    TicketStatus,
-    UserRole,
-)
-from app.models.history import TicketHistory
-from app.models.technician import Technician
-from app.models.ticket import Ticket
-from app.models.user import User
-from sqlalchemy.orm import Session
+
+# ACET CSE Department Student Directory (Batch 2023-2024)
+STUDENTS_ROSTER = [
+    ("23MH1A0501", "Nandani Sah", "23MH1A0501@acoe.edu.in"),
+    ("23MH1A0502", "Balam Hema Lavanya", "23MH1A0502@acoe.edu.in"),
+    ("23MH1A0503", "Battula Bhuvaneswari", "23MH1A0503@acoe.edu.in"),
+    ("23MH1A0504", "Battula Eswari", "23MH1A0504@acoe.edu.in"),
+    ("23MH1A0505", "Bayyapu Sathwik Raj", "23MH1A0505@acoe.edu.in"),
+    ("23MH1A0506", "Beela Satyakrishna", "23MH1A0506@acoe.edu.in"),
+    ("23MH1A0507", "Bikash Chauhan", "23MH1A0507@acoe.edu.in"),
+    ("23MH1A0508", "Bikash Hemrom", "23MH1A0508@acoe.edu.in"),
+    ("23MH1A0509", "Bilakurthi Siva Krishna Santhosh", "23MH1A0509@acoe.edu.in"),
+    ("23MH1A0510", "Boggarapu Sri Varshini", "23MH1A0510@acoe.edu.in"),
+    ("23MH1A0511", "Chamanchula Jaswanth", "23MH1A0511@acoe.edu.in"),
+    ("23MH1A0512", "Chintala Hyma", "23MH1A0512@acoe.edu.in"),
+    ("23MH1A0513", "Chodisetti Balaji", "23MH1A0513@acoe.edu.in"),
+    ("23MH1A0514", "Chukkala Siva Durga Vinodini", "23MH1A0514@acoe.edu.in"),
+    ("23MH1A0515", "Dakamuri Jahnavi", "23MH1A0515@acoe.edu.in"),
+    ("23MH1A0516", "Dhrub Kumar Thakur", "23MH1A0516@acoe.edu.in"),
+    ("23MH1A0517", "Gandi Nava Teja", "23MH1A0517@acoe.edu.in"),
+    ("23MH1A0518", "Geetha Ganipineni", "23MH1A0518@acoe.edu.in"),
+    ("23MH1A0519", "Gollapalli Sangeetha", "23MH1A0519@acoe.edu.in"),
+    ("23MH1A0520", "Gonthini Pavani", "23MH1A0520@acoe.edu.in"),
+    ("23MH1A0521", "Gorle Harika", "23MH1A0521@acoe.edu.in"),
+    ("23MH1A0522", "Guruvelli Mukesh", "23MH1A0522@acoe.edu.in"),
+    ("23MH1A0523", "Karanam Naga Venkata Sai Ganesh", "23MH1A0523@acoe.edu.in"),
+    ("23MH1A0524", "Kathinokkula Bhavani Surya Prabha", "23MH1A0524@acoe.edu.in"),
+    ("23MH1A0525", "Kayala Dinddima Durga Ganesh", "23MH1A0525@acoe.edu.in"),
+    ("23MH1A0526", "Komal Shrivastav", "23MH1A0526@acoe.edu.in"),
+    ("23MH1A0527", "Konda Prabhakar", "23MH1A0527@acoe.edu.in"),
+    ("23MH1A0528", "Kovi Indu Priya", "23MH1A0528@acoe.edu.in"),
+    ("23MH1A0529", "Chitrada Bhargavi", "23MH1A0529@acoe.edu.in"),
+    ("23MH1A0530", "Kudipudi Kumar Surya", "23MH1A0530@acoe.edu.in"),
+    ("23MH1A0531", "Kunduri Liketh Vara Prakash Ram", "23MH1A0531@acoe.edu.in"),
+    ("23MH1A0532", "Madarapu Sri Venkata Krishna", "23MH1A0532@acoe.edu.in"),
+    ("23MH1A0533", "Madduluri Sushma Sree", "23MH1A0533@acoe.edu.in"),
+    ("23MH1A0534", "Malleswarapu Anuradha", "23MH1A0534@acoe.edu.in"),
+    ("23MH1A0535", "Anupom Das", "23MH1A0535@acoe.edu.in"),
+    ("23MH1A0536", "Molla Afrid", "23MH1A0536@acoe.edu.in"),
+    ("23MH1A0537", "Mondem Joshitha", "23MH1A0537@acoe.edu.in"),
+    ("23MH1A0538", "Mst Sonia Khtun", "23MH1A0538@acoe.edu.in"),
+    ("23MH1A0539", "Muskan Sah", "23MH1A0539@acoe.edu.in"),
+    ("23MH1A0540", "Mutyala Satya Prasad", "23MH1A0540@acoe.edu.in"),
+    ("23MH1A0541", "Nadimpalli Madhulatha Ram", "23MH1A0541@acoe.edu.in"),
+    ("23MH1A0542", "Nakka Ravindra", "23MH1A0542@acoe.edu.in"),
+    ("23MH1A0543", "Neyyala Naveen Kumar", "23MH1A0543@acoe.edu.in"),
+    ("23MH1A0544", "Niraj Kumar Yadav", "23MH1A0544@acoe.edu.in"),
+    ("23MH1A0545", "Nuthalapati Harthika", "23MH1A0545@acoe.edu.in"),
+    ("23MH1A0546", "Palli Poojitha", "23MH1A0546@acoe.edu.in"),
+    ("23MH1A0547", "Pasupuleti Veera Naga Sai", "23MH1A0547@acoe.edu.in"),
+    ("23MH1A0548", "Pati Geetha", "23MH1A0548@acoe.edu.in"),
+    ("23MH1A0549", "Pedapatruni Poojitha Pravallika", "23MH1A0549@acoe.edu.in"),
+    ("23MH1A0550", "Pilipe Praveen", "23MH1A0550@acoe.edu.in"),
+    ("23MH1A0551", "Lanka Durgaprasad", "23MH1A0551@acoe.edu.in"),
+    ("23MH1A0552", "Pinneboina Mounika", "23MH1A0552@acoe.edu.in"),
+    ("23MH1A0553", "Polanati Tejaswi", "23MH1A0553@acoe.edu.in"),
+    ("23MH1A0554", "Rachamalla Praveen Naga Surya", "23MH1A0554@acoe.edu.in"),
+    ("23MH1A0555", "Raju Kumar Kushwaha", "23MH1A0555@acoe.edu.in"),
+    ("23MH1A0556", "Sadhana Patel", "23MH1A0556@acoe.edu.in"),
+    ("23MH1A0557", "Shaik Mohammad Irfan", "23MH1A0557@acoe.edu.in"),
+    ("23MH1A0558", "Shaik Sameer", "23MH1A0558@acoe.edu.in"),
+    ("23MH1A0559", "Shekh Basir", "23MH1A0559@acoe.edu.in"),
+    ("23MH1A0560", "Thota Padma Vijaya Lakshmi Pallavi", "23MH1A0560@acoe.edu.in"),
+    ("23MH1A0561", "Turala Sowmyarani", "23MH1A0561@acoe.edu.in"),
+    ("23MH1A0562", "Turram Yamini Geetha", "23MH1A0562@acoe.edu.in"),
+    ("23MH1A0563", "Valeti Gangadhar", "23MH1A0563@acoe.edu.in"),
+    ("23MH1A0564", "Vallabhapuram Sai Suhas", "23MH1A0564@acoe.edu.in"),
+    ("23MH1A0565", "Vantimi Beulah Keerthana", "23MH1A0565@acoe.edu.in"),
+    ("23MH1A0566", "Vengalasetty Jayasarvani", "23MH1A0566@acoe.edu.in"),
+    ("23MH1A0567", "Venkata Kailash Polimeru", "23MH1A0567@acoe.edu.in"),
+    ("23MH1A0568", "Visvanatham Durga Deepika", "23MH1A0568@acoe.edu.in"),
+    ("23MH1A0569", "Voduri Abhinav", "23MH1A0569@acoe.edu.in"),
+    ("23MH1A0570", "Yenugula Tejaswini Veera", "23MH1A0570@acoe.edu.in"),
+    ("23MH1A0571", "Yeruva Tarun Kumar Reddy", "23MH1A0571@acoe.edu.in"),
+    ("23MH1A0572", "Yograj Dev", "23MH1A0572@acoe.edu.in"),
+    ("23MH1A0573", "Adapala Basava Manikanta", "23MH1A0573@acoe.edu.in"),
+    ("23MH1A0574", "Aditya Kumar Gupta", "23MH1A0574@acoe.edu.in"),
+    ("23MH1A0575", "Ahesan Ali Ansari", "23MH1A0575@acoe.edu.in"),
+    ("23MH1A0576", "Amarjeet Kumar", "23MH1A0576@acoe.edu.in"),
+    ("23MH1A0577", "Anakapalli V V S S P B Vijaya Varshini", "23MH1A0577@acoe.edu.in"),
+    ("23MH1A0578", "Bangaru Hema", "23MH1A0578@acoe.edu.in"),
+    ("23MH1A0579", "Behara Surya Himavanth", "23MH1A0579@acoe.edu.in"),
+    ("23MH1A0580", "Betha Sudharshan Jyothi", "23MH1A0580@acoe.edu.in"),
+    ("23MH1A0581", "Bitra Pavan Santhosh Kumar", "23MH1A0581@acoe.edu.in"),
+    ("23MH1A0582", "Challa Durga", "23MH1A0582@acoe.edu.in"),
+    ("23MH1A0583", "Chilukuri Venkata Lakshmi Swathi", "23MH1A0583@acoe.edu.in"),
+    ("23MH1A0584", "Chinta Siri", "23MH1A0584@acoe.edu.in"),
+    ("23MH1A0585", "Chittemreddy Pranay", "23MH1A0585@acoe.edu.in"),
+    ("23MH1A0586", "Devarapalli Manish", "23MH1A0586@acoe.edu.in"),
+    ("23MH1A0587", "Dhullipalla Radhika", "23MH1A0587@acoe.edu.in"),
+    ("23MH1A0588", "Diddi Sri Akshita", "23MH1A0588@acoe.edu.in"),
+    ("23MH1A0589", "Gatti Satya Srinivasa M Naga Manikanta", "23MH1A0589@acoe.edu.in"),
+    ("23MH1A0590", "Gonthina Pavani Lakshmi", "23MH1A0590@acoe.edu.in"),
+    ("23MH1A0591", "Gudapati Posukumar", "23MH1A0591@acoe.edu.in"),
+    ("23MH1A0592", "Gunnam Lakshmi Sowmya", "23MH1A0592@acoe.edu.in"),
+    ("23MH1A0593", "Guntreddi Usha Rani", "23MH1A0593@acoe.edu.in"),
+    ("23MH1A0594", "Hamza Kalim Hashmi Khan", "23MH1A0594@acoe.edu.in"),
+    ("23MH1A0595", "Jannatun Firdous", "23MH1A0595@acoe.edu.in"),
+    ("23MH1A0596", "Kancherla Mohana Deepika", "23MH1A0596@acoe.edu.in"),
+    ("23MH1A0597", "Kanoori Rambabu", "23MH1A0597@acoe.edu.in"),
+    ("23MH1A0598", "Katta Tejaswini", "23MH1A0598@acoe.edu.in"),
+    ("23MH1A0599", "Khushbu Kumari", "23MH1A0599@acoe.edu.in"),
+    ("23MH1A05A0", "Kolli Navya Sri", "23MH1A05A0@acoe.edu.in"),
+    ("23MH1A05A1", "Konala Srilatha", "23MH1A05A1@acoe.edu.in"),
+    ("23MH1A05A2", "Korangi Veera Venkata Priyanka Ramana Sri", "23MH1A05A2@acoe.edu.in"),
+    ("23MH1A05A3", "Korlapu Chakradhar", "23MH1A05A3@acoe.edu.in"),
+    ("23MH1A05A4", "Kota Harish", "23MH1A05A4@acoe.edu.in"),
+    ("23MH1A05A5", "Kovvuri Harshitha", "23MH1A05A5@acoe.edu.in"),
+    ("23MH1A05A6", "Kovvuri Sri Sai Divya", "23MH1A05A6@acoe.edu.in"),
+    ("23MH1A05A7", "Landa Sai Kiran", "23MH1A05A7@acoe.edu.in"),
+    ("23MH1A05A8", "Madasi Nihitha", "23MH1A05A8@acoe.edu.in"),
+    ("23MH1A05A9", "Malladi John Prakash", "23MH1A05A9@acoe.edu.in"),
+    ("23MH1A05B0", "Mallela Suguna", "23MH1A05B0@acoe.edu.in"),
+    ("23MH1A05B1", "Mallidi Lakshmi Sathvika", "23MH1A05B1@acoe.edu.in"),
+    ("23MH1A05B2", "Manukonda Bhanu Sri", "23MH1A05B2@acoe.edu.in"),
+    ("23MH1A05B3", "Monu Kumar", "23MH1A05B3@acoe.edu.in"),
+    ("23MH1A05B4", "Mounika Bhavani Atthi", "23MH1A05B4@acoe.edu.in"),
+    ("23MH1A05B5", "Jayanti Das Suhani", "23MH1A05B5@acoe.edu.in"),
+    ("23MH1A05B6", "Nangana Vijay Kumar", "23MH1A05B6@acoe.edu.in"),
+    ("23MH1A05B7", "Naraharasetty Harika", "23MH1A05B7@acoe.edu.in"),
+    ("23MH1A05B8", "Narala Bhavani Satya Rama Prasad", "23MH1A05B8@acoe.edu.in"),
+    ("23MH1A05B9", "Neha Yadav", "23MH1A05B9@acoe.edu.in"),
+    ("23MH1A05C0", "Patchipulusu Leela Krishna Raghavendra", "23MH1A05C0@acoe.edu.in"),
+    ("23MH1A05C1", "Pedapati Chandu", "23MH1A05C1@acoe.edu.in"),
+    ("23MH1A05C2", "Pithala Vikas", "23MH1A05C2@acoe.edu.in"),
+    ("23MH1A05C3", "Prameshwar Kumar Patel", "23MH1A05C3@acoe.edu.in"),
+    ("23MH1A05C4", "Rajasekhar Rowlo", "23MH1A05C4@acoe.edu.in"),
+    ("23MH1A05C5", "Rapaka Jayanth Kumar", "23MH1A05C5@acoe.edu.in"),
+    ("23MH1A05C6", "Molleti Leela Prasad", "23MH1A05C6@acoe.edu.in"),
+    ("23MH1A05C7", "Sat Kumar Mahato Nuniya", "23MH1A05C7@acoe.edu.in"),
+    ("23MH1A05C8", "Sathi Mohana Sri Adilakshmi", "23MH1A05C8@acoe.edu.in"),
+    ("23MH1A05C9", "Seeli Neha Swapna", "23MH1A05C9@acoe.edu.in"),
+    ("23MH1A05D0", "Shaik Ishak Baba", "23MH1A05D0@acoe.edu.in"),
+    ("23MH1A05D1", "Shaik Siraj", "23MH1A05D1@acoe.edu.in"),
+    ("23MH1A05D2", "Palla Nani", "23MH1A05D2@acoe.edu.in"),
+    ("23MH1A05D3", "Sura Bhargavi", "23MH1A05D3@acoe.edu.in"),
+    ("23MH1A05D4", "Thiragati Sameer Sagar", "23MH1A05D4@acoe.edu.in"),
+    ("23MH1A05D5", "Tummalapalli Veera Ragini", "23MH1A05D5@acoe.edu.in"),
+    ("23MH1A05D6", "Ummadisetty Manoj Kumar", "23MH1A05D6@acoe.edu.in"),
+    ("23MH1A05D7", "Uzaifa Kalim Hashmi Khan", "23MH1A05D7@acoe.edu.in"),
+    ("23MH1A05D8", "Vandana Kumari", "23MH1A05D8@acoe.edu.in"),
+    ("23MH1A05D9", "Varra Praneeth Raj", "23MH1A05D9@acoe.edu.in"),
+    ("23MH1A05E0", "Vatluri Mahidhar", "23MH1A05E0@acoe.edu.in"),
+    ("23MH1A05E1", "Veeramachaneni Divya Sri", "23MH1A05E1@acoe.edu.in"),
+    ("23MH1A05E2", "Vennapusa Ashok", "23MH1A05E2@acoe.edu.in"),
+    ("23MH1A05E3", "Vithanala Suresh Kumar", "23MH1A05E3@acoe.edu.in"),
+    ("23MH1A05E4", "Yalamanchili Divya Sri", "23MH1A05E4@acoe.edu.in"),
+    ("23MH1A05E5", "Akkina Sravanthi Sai Lakshmi", "23MH1A05E5@acoe.edu.in"),
+    ("23MH1A05E6", "Akula Bhanu Satwika", "23MH1A05E6@acoe.edu.in"),
+    ("23MH1A05E7", "Alla Umesh", "23MH1A05E7@acoe.edu.in"),
+    ("23MH1A05E8", "Antony Kudakwashe Chivandire", "23MH1A05E8@acoe.edu.in"),
+    ("23MH1A05E9", "Bantumilli Sri Vyshnavi", "23MH1A05E9@acoe.edu.in"),
+    ("23MH1A05F0", "Bethampudi Lakshmi Priyanka", "23MH1A05F0@acoe.edu.in"),
+    ("23MH1A05F1", "Botsa Gowthami", "23MH1A05F1@acoe.edu.in"),
+    ("23MH1A05F2", "Bulusu Sri Surya Lakshmi", "23MH1A05F2@acoe.edu.in"),
+    ("23MH1A05F3", "Chekka Komali", "23MH1A05F3@acoe.edu.in"),
+    ("23MH1A05F4", "Cheppulla Meghana", "23MH1A05F4@acoe.edu.in"),
+    ("23MH1A05F5", "Dakamari Siva Pranay", "23MH1A05F5@acoe.edu.in"),
+    ("23MH1A05F6", "Daliparthi Anantha Karthikeya", "23MH1A05F6@acoe.edu.in"),
+    ("23MH1A05F7", "Dannina Bhagya Prasad", "23MH1A05F7@acoe.edu.in"),
+    ("23MH1A05F8", "Dasari King Shalem Siddican", "23MH1A05F8@acoe.edu.in"),
+    ("23MH1A05F9", "Dasari Naveen Kumar", "23MH1A05F9@acoe.edu.in"),
+    ("23MH1A05G0", "Dokuparthi Kalesha Vali", "23MH1A05G0@acoe.edu.in"),
+    ("23MH1A05G1", "Donepudi Uma Dharani", "23MH1A05G1@acoe.edu.in"),
+    ("23MH1A05G2", "Dwarakacharla Veera Guru Prashanth Reddy", "23MH1A05G2@acoe.edu.in"),
+    ("23MH1A05G3", "Ganta Mounika Sitha Mahalakshmi", "23MH1A05G3@acoe.edu.in"),
+    ("23MH1A05G4", "Gatiganti Sai Surya Lakshmi", "23MH1A05G4@acoe.edu.in"),
+    ("23MH1A05G5", "Gattem Tagore Ram Tharun", "23MH1A05G5@acoe.edu.in"),
+    ("23MH1A05G6", "Gedela Adi Chakradhar", "23MH1A05G6@acoe.edu.in"),
+    ("23MH1A05G7", "Tanuku N V S Surya Prasad", "23MH1A05G7@acoe.edu.in"),
+    ("23MH1A05G8", "Gorrela Radhikadevi", "23MH1A05G8@acoe.edu.in"),
+    ("23MH1A05G9", "Gudala Anudeep", "23MH1A05G9@acoe.edu.in"),
+    ("23MH1A05H0", "Janga Joseph Raju", "23MH1A05H0@acoe.edu.in"),
+    ("23MH1A05H1", "Jauki Takudzwa", "23MH1A05H1@acoe.edu.in"),
+    ("23MH1A05H2", "Kadali Ganesh Naga Kumar", "23MH1A05H2@acoe.edu.in"),
+    ("23MH1A05H3", "Kalla P S V Durga Rao", "23MH1A05H3@acoe.edu.in"),
+    ("23MH1A05H4", "Kalla Ch K Sri Hari Narasimha Satya Durga", "23MH1A05H4@acoe.edu.in"),
+    ("23MH1A05H5", "Kaki Prashanth", "23MH1A05H5@acoe.edu.in"),
+    ("23MH1A05H6", "Kanaparthi Bhanusri", "23MH1A05H6@acoe.edu.in"),
+    ("23MH1A05H7", "Kasireddy Varun Kumar", "23MH1A05H7@acoe.edu.in"),
+    ("23MH1A05H8", "Kilari Ushodaya", "23MH1A05H8@acoe.edu.in"),
+    ("23MH1A05H9", "Sibanda Nkosinathi Michael", "23MH1A05H9@acoe.edu.in"),
+    ("23MH1A05I0", "Kotipalli Lahari Sri", "23MH1A05I0@acoe.edu.in"),
+    ("23MH1A05I1", "Kotte Venkata Lokesh", "23MH1A05I1@acoe.edu.in"),
+    ("23MH1A05I2", "Kurupudi Charan Sai Raju", "23MH1A05I2@acoe.edu.in"),
+    ("23MH1A05I3", "Maddula Praneetha Sai", "23MH1A05I3@acoe.edu.in"),
+    ("23MH1A05I4", "Madhu Hasitha Kondeti", "23MH1A05I4@acoe.edu.in"),
+    ("23MH1A05I5", "Madugula Nanda Kumar", "23MH1A05I5@acoe.edu.in"),
+    ("23MH1A05I6", "Mamidi Pavan", "23MH1A05I6@acoe.edu.in"),
+    ("23MH1A05I7", "Mantena Sirisha", "23MH1A05I7@acoe.edu.in"),
+    ("23MH1A05I8", "Mantri Shyam Prasad", "23MH1A05I8@acoe.edu.in"),
+    ("23MH1A05I9", "Meripe Akshaya", "23MH1A05I9@acoe.edu.in"),
+    ("23MH1A05J0", "Mohammad Ayaz", "23MH1A05J0@acoe.edu.in"),
+    ("23MH1A05J1", "Moyo Kelvin", "23MH1A05J1@acoe.edu.in"),
+    ("23MH1A05J2", "Mrinmoy Datta", "23MH1A05J2@acoe.edu.in"),
+    ("23MH1A05J3", "Mukushwa Takwana Daniel", "23MH1A05J3@acoe.edu.in"),
+    ("23MH1A05J4", "Musini Veera Venkata Anantha Pavani", "23MH1A05J4@acoe.edu.in"),
+    ("23MH1A05J5", "Nammi Jaya Harshitha", "23MH1A05J5@acoe.edu.in"),
+    ("23MH1A05J6", "Nori Bhavika", "23MH1A05J6@acoe.edu.in"),
+    ("23MH1A05J7", "Nulu Tripura Raja Niharika", "23MH1A05J7@acoe.edu.in"),
+    ("23MH1A05J8", "Palaparthi Ravindra Raju", "23MH1A05J8@acoe.edu.in"),
+    ("23MH1A05J9", "Palivela Chandrika", "23MH1A05J9@acoe.edu.in"),
+    ("23MH1A05K0", "Paragati Seva Kumar", "23MH1A05K0@acoe.edu.in"),
+    ("23MH1A05K1", "Pedapudi Nithya Santhoshi", "23MH1A05K1@acoe.edu.in"),
+    ("23MH1A05K2", "Posimsetti Varun Sai Satya Krishna", "23MH1A05K2@acoe.edu.in"),
+    ("23MH1A05K3", "Puchakayala Venkata Lakshmana Babu", "23MH1A05K3@acoe.edu.in"),
+    ("23MH1A05K4", "Ramakurthi Venkata Krishnarjuna Nageswar", "23MH1A05K4@acoe.edu.in"),
+    ("23MH1A05K5", "Ravi Kiran Paidi", "23MH1A05K5@acoe.edu.in"),
+    ("23MH1A05K6", "Rayudu Bala Venkata Sri Saranya", "23MH1A05K6@acoe.edu.in"),
+    ("23MH1A05K7", "Sandipan Jana", "23MH1A05K7@acoe.edu.in"),
+    ("23MH1A05K8", "Sirigineedi Kavyanjali", "23MH1A05K8@acoe.edu.in"),
+    ("23MH1A05K9", "Tamarana Ramya", "23MH1A05K9@acoe.edu.in"),
+    ("23MH1A05L0", "Gorli Kiran Ajay", "23MH1A05L0@acoe.edu.in"),
+    ("23MH1A05L1", "Velamala Preetham", "23MH1A05L1@acoe.edu.in"),
+    ("23MH1A05L2", "Vemana Chaitanya Satyakumar", "23MH1A05L2@acoe.edu.in"),
+    ("23MH1A05L3", "Venkata Naga Rama Pithani", "23MH1A05L3@acoe.edu.in"),
+    ("23MH1A05L4", "Vetsa Shalini Mani Chandana Kumari", "23MH1A05L4@acoe.edu.in"),
+    ("23MH1A05L5", "Yandra Siva Ganesh", "23MH1A05L5@acoe.edu.in"),
+    ("23MH1A05L6", "Yerram Pavan Kumar Reddy", "23MH1A05L6@acoe.edu.in"),
+    ("23MH1A05L7", "Anusuri Syam Praveen", "23MH1A05L7@acoe.edu.in"),
+    ("23MH1A05L8", "Attili Nithin Datta", "23MH1A05L8@acoe.edu.in"),
+    ("23MH1A05L9", "Bonda Kavya Sri", "23MH1A05L9@acoe.edu.in"),
+    ("23MH1A05M0", "Cherukuri Poornima Devi", "23MH1A05M0@acoe.edu.in"),
+    ("23MH1A05M1", "Dwarampudi Bhagyasri", "23MH1A05M1@acoe.edu.in"),
+    ("23MH1A05M2", "Gandepalli Radha Krishna", "23MH1A05M2@acoe.edu.in"),
+    ("23MH1A05M3", "Kaki Guna Sai Teja", "23MH1A05M3@acoe.edu.in"),
+    ("23MH1A05M4", "Konathala Divyateja", "23MH1A05M4@acoe.edu.in"),
+    ("23MH1A05M5", "Konthala Yashwanth Reddy", "23MH1A05M5@acoe.edu.in"),
+    ("23MH1A05M6", "Kottela Sandeep", "23MH1A05M6@acoe.edu.in"),
+    ("23MH1A05M7", "Kudipudi Naveen", "23MH1A05M7@acoe.edu.in"),
+    ("23MH1A05M8", "Kunisetty Hadassa", "23MH1A05M8@acoe.edu.in"),
+    ("23MH1A05M9", "Madda Swetha", "23MH1A05M9@acoe.edu.in"),
+    ("23MH1A05N0", "Maicharla Mouli Sai Deep", "23MH1A05N0@acoe.edu.in"),
+    ("23MH1A05N1", "Md Hamim", "23MH1A05N1@acoe.edu.in"),
+    ("23MH1A05N2", "Md Istiak Hasan Rial", "23MH1A05N2@acoe.edu.in"),
+    ("23MH1A05N3", "Mohammad Abdul Hameed", "23MH1A05N3@acoe.edu.in"),
+    ("23MH1A05N4", "Murugu Sirisha Madhuvarshini", "23MH1A05N4@acoe.edu.in"),
+    ("23MH1A05N5", "Nallamilli Chandrika", "23MH1A05N5@acoe.edu.in"),
+    ("23MH1A05N6", "Narendra Purapu Bala Sri Rajesh", "23MH1A05N6@acoe.edu.in"),
+    ("23MH1A05N7", "Nethala Preetham Teja", "23MH1A05N7@acoe.edu.in"),
+    ("23MH1A05N8", "Nunna Yuktha Sri", "23MH1A05N8@acoe.edu.in"),
+    ("23MH1A05N9", "Pappu Manasa", "23MH1A05N9@acoe.edu.in"),
+    ("23MH1A05O0", "Pechetti Harshini", "23MH1A05O0@acoe.edu.in"),
+    ("23MH1A05O1", "Pediredla Vishnu Venkata Rishi", "23MH1A05O1@acoe.edu.in"),
+    ("23MH1A05O2", "Pothula Satya Sri", "23MH1A05O2@acoe.edu.in"),
+    ("23MH1A05O3", "Pullipudi Srinija", "23MH1A05O3@acoe.edu.in"),
+    ("23MH1A05O4", "Rikki Poorna Chandra Rao", "23MH1A05O4@acoe.edu.in"),
+    ("23MH1A05O5", "Rowtu Divya Sri Lakshmi", "23MH1A05O5@acoe.edu.in"),
+    ("23MH1A05O6", "Sana Hema Naga Satya Bhavani", "23MH1A05O6@acoe.edu.in"),
+    ("23MH1A05O7", "Sarup Bormon", "23MH1A05O7@acoe.edu.in"),
+    ("23MH1A05O8", "Kothapalli Durgaprasad", "23MH1A05O8@acoe.edu.in"),
+    ("23MH1A05O9", "Siraparapu Bala Sai", "23MH1A05O9@acoe.edu.in"),
+    ("23MH1A05P0", "Sivakoti Amith", "23MH1A05P0@acoe.edu.in"),
+    ("23MH1A05P1", "Sundarapu Lavanya Suryasri Devika", "23MH1A05P1@acoe.edu.in"),
+    ("23MH1A05P2", "Thiragati Hruday Raj", "23MH1A05P2@acoe.edu.in"),
+    ("23MH1A05P3", "Thota Nandu Kishor Reddy", "23MH1A05P3@acoe.edu.in"),
+    ("23MH1A05P4", "Vasantala Yogeswari", "23MH1A05P4@acoe.edu.in"),
+    ("23MH1A05P5", "Yarroju Hemasree", "23MH1A05P5@acoe.edu.in"),
+    ("23MH1A05P6", "Yellaboyina Shiva Shankar", "23MH1A05P6@acoe.edu.in"),
+    ("23MH1A05P7", "Addanki Veera Venkata Sai Ganesh", "23MH1A05P7@acoe.edu.in"),
+    ("23MH1A05P8", "Allam Devi Mounika", "23MH1A05P8@acoe.edu.in"),
+    ("23MH1A05P9", "Appanapalli Sunitha", "23MH1A05P9@acoe.edu.in"),
+    ("23MH1A05Q0", "Bathina Reena", "23MH1A05Q0@acoe.edu.in"),
+    ("23MH1A05Q1", "Busupalli Manoj Reddy", "23MH1A05Q1@acoe.edu.in"),
+    ("23MH1A05Q2", "Cherukuri Rakesh", "23MH1A05Q2@acoe.edu.in"),
+    ("23MH1A05Q3", "Dayam Ratnasri", "23MH1A05Q3@acoe.edu.in"),
+    ("23MH1A05Q4", "Etta Manikanta", "23MH1A05Q4@acoe.edu.in"),
+    ("23MH1A05Q5", "Kadali Geetha Sravya", "23MH1A05Q5@acoe.edu.in"),
+    ("23MH1A05Q6", "Kondapalli Gangavinay", "23MH1A05Q6@acoe.edu.in"),
+    ("23MH1A05Q7", "Konki Sai Chaitanya", "23MH1A05Q7@acoe.edu.in"),
+    ("23MH1A05Q8", "Kovvuri Harshitha", "23MH1A05Q8@acoe.edu.in"),
+    ("23MH1A05Q9", "Maram Jhansi", "23MH1A05Q9@acoe.edu.in"),
+    ("23MH1A05R0", "Panneru Lova Veerraju", "23MH1A05R0@acoe.edu.in"),
+    ("23MH1A05R1", "Shaik Nijamuddin", "23MH1A05R1@acoe.edu.in"),
+    ("23MH1A05R2", "Syed Mohammad Saad", "23MH1A05R2@acoe.edu.in"),
+    ("23MH1A05R3", "Mst Taharima Tabassum", "23MH1A05R3@acoe.edu.in"),
+    ("23MH1A05R4", "Kamada Dinesh Karthik Varma", "23MH1A05R4@acoe.edu.in"),
+    ("23MH1A05R5", "Sinisetti Venkata Vamsi Ramakrishna", "23MH1A05R5@acoe.edu.in"),
+    ("23MH1A05R6", "Jetti V D Ram Prasad", "23MH1A05R6@acoe.edu.in"),
+    ("23MH1A05R7", "Gangireddy Srinath", "23MH1A05R7@acoe.edu.in"),
+    ("23MH1A05R8", "Arpon Roy", "23MH1A05R8@acoe.edu.in"),
+    ("23MH1A05R9", "Md Shad Khan", "23MH1A05R9@acoe.edu.in"),
+    ("23MH1A05S0", "Md Asif Khan", "23MH1A05S0@acoe.edu.in"),
+    ("23MH1A05S1", "Priyanka Lamsal", "23MH1A05S1@acoe.edu.in"),
+    ("23MH1A05S2", "Lokhesh Kumar Namala", "23MH1A05S2@acoe.edu.in"),
+    ("23MH1A05S3", "Komirisetti Naveen Kumar", "23MH1A05S3@acoe.edu.in"),
+    ("23MH1A05S4", "Motupalli Mahendra Jagadeesh", "23MH1A05S4@acoe.edu.in"),
+    ("23MH1A05S5", "Duvva Bala Harshitha Kumari", "23MH1A05S5@acoe.edu.in"),
+    ("23MH1A05S6", "Bonthu Sandeep", "23MH1A05S6@acoe.edu.in"),
+    ("23MH1A05S7", "Himanshu Chaudhary", "23MH1A05S7@acoe.edu.in"),
+    ("23MH1A05S8", "Swarnkrit Sonal Karna", "23MH1A05S8@acoe.edu.in"),
+]
 
 
 def seed_database(db: Session):
-  """Inserts Master Faculty Directory, Admin, Technicians and Demo Assets."""
-  # 1. GUARANTEE ADMIN PASSWORD IS ALWAYS admin123
-  admin_user = (
-      db.query(User).filter(User.username == settings.ADMIN_USERNAME).first()
-  )
-  if not admin_user:
-    admin_user = User(
-        username=settings.ADMIN_USERNAME,
-        email=settings.ADMIN_EMAIL,
-        full_name="System Administrator",
-        hashed_password=get_password_hash(settings.ADMIN_PASSWORD),
-        role=UserRole.ADMIN.value,
-        is_active=True,
-    )
-    db.add(admin_user)
-    db.commit()
-  else:
-    admin_user.hashed_password = get_password_hash(settings.ADMIN_PASSWORD)
-    admin_user.is_active = True
-    db.commit()
+    """Inserts Admin, Faculty, and All 116+ CSE Department Students."""
 
-  # 2. GUARANTEE FACULTY YDP (faculty123)
-  ydp_user = db.query(User).filter(User.username == "ydp").first()
-  if not ydp_user:
-    ydp_user = User(
-        username="ydp",
-        email="ydp.cse@acet.ac.in",
-        full_name="Prof. Y.D.P (Faculty, CSE)",
-        hashed_password=get_password_hash("faculty123"),
-        role=UserRole.FACULTY.value,
-        is_active=True,
-    )
-    db.add(ydp_user)
-    db.commit()
-  else:
-    ydp_user.hashed_password = get_password_hash("faculty123")
-    db.commit()
+    # 1. Admin Account
+    admin_user = db.query(User).filter(User.username == settings.ADMIN_USERNAME).first()
+    if not admin_user:
+        admin_user = User(
+            username=settings.ADMIN_USERNAME,
+            email=settings.ADMIN_EMAIL,
+            full_name="System Administrator",
+            hashed_password=get_password_hash(settings.ADMIN_PASSWORD),
+            role=UserRole.ADMIN.value,
+            is_active=True,
+        )
+        db.add(admin_user)
+        db.commit()
 
-  # 3. GUARANTEE FACULTY ALAN (faculty123)
-  alan_user = db.query(User).filter(User.username == "faculty_alan").first()
-  if not alan_user:
-    alan_user = User(
-        username="faculty_alan",
-        email="alan.cse@acet.ac.in",
-        full_name="Dr. Alan Turing (Faculty, CSE)",
-        hashed_password=get_password_hash("faculty123"),
-        role=UserRole.FACULTY.value,
-        is_active=True,
-    )
-    db.add(alan_user)
-    db.commit()
-  else:
-    alan_user.hashed_password = get_password_hash("faculty123")
-    db.commit()
+    # 2. Faculty YDP
+    ydp_user = db.query(User).filter(User.username == "ydp").first()
+    if not ydp_user:
+        ydp_user = User(
+            username="ydp",
+            email="ydp.cse@acet.ac.in",
+            full_name="Prof. Y.D.P (Faculty, CSE)",
+            hashed_password=get_password_hash("faculty123"),
+            role=UserRole.FACULTY.value,
+            is_active=True,
+        )
+        db.add(ydp_user)
+        db.commit()
 
-  # 4. Tech and Student
-  if not db.query(User).filter(User.username == "tech_rahul").first():
-    tech_user = User(
-        username="tech_rahul",
-        email="rahul.kumar@demo.org",
-        full_name="Rahul Kumar (Hardware Technician)",
-        hashed_password=get_password_hash("tech123"),
-        role=UserRole.TECHNICIAN.value,
-        is_active=True,
-    )
-    db.add(tech_user)
-    db.commit()
+    # 3. Faculty Alan
+    alan_user = db.query(User).filter(User.username == "faculty_alan").first()
+    if not alan_user:
+        alan_user = User(
+            username="faculty_alan",
+            email="alan.cse@acet.ac.in",
+            full_name="Dr. Alan Turing (Faculty, CSE)",
+            hashed_password=get_password_hash("faculty123"),
+            role=UserRole.FACULTY.value,
+            is_active=True,
+        )
+        db.add(alan_user)
+        db.commit()
 
-  if not db.query(User).filter(User.username == "student_user").first():
-    std_user = User(
-        username="student_user",
-        email="student@demo.org",
-        full_name="Ganesh Addanki (Student - 21P31A05xx)",
-        hashed_password=get_password_hash("user123"),
-        role=UserRole.USER.value,
-        is_active=True,
-    )
-    db.add(std_user)
+    # 4. IT Technician
+    if not db.query(User).filter(User.username == "tech_rahul").first():
+        tech_user = User(
+            username="tech_rahul",
+            email="rahul.kumar@demo.org",
+            full_name="Rahul Kumar (Hardware Technician)",
+            hashed_password=get_password_hash("tech123"),
+            role=UserRole.TECHNICIAN.value,
+            is_active=True,
+        )
+        db.add(tech_user)
+        db.commit()
+
+    # 5. BULK SEED ALL CSE DEPARTMENT STUDENTS
+    # Username: Roll Number (lowercase)
+    # Default Password: Same Roll Number
+    # Preserves any changed password permanently!
+    for roll, name, email in STUDENTS_ROSTER:
+        uname = roll.strip().lower()
+        existing_student = db.query(User).filter(User.username == uname).first()
+        if not existing_student:
+            student_user = User(
+                username=uname,
+                email=email,
+                full_name=f"{name} ({roll})",
+                hashed_password=get_password_hash(uname),  # Default Password = Roll Number
+                role=UserRole.USER.value,
+                is_active=True,
+            )
+            db.add(student_user)
     db.commit()
