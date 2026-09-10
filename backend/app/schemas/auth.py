@@ -1,53 +1,59 @@
-from pydantic import BaseModel, EmailStr, Field, ConfigDict
-from typing import Optional, List
 from datetime import datetime
+from typing import List, Optional
 from app.models.enums import UserRole
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class UserBase(BaseModel):
-    username: str = Field(..., min_length=3, max_length=50)
-    email: EmailStr
-    full_name: str = Field(..., min_length=2, max_length=100)
+  username: str = Field(..., min_length=3, max_length=50)
+  email: EmailStr
+  full_name: str = Field(..., min_length=2, max_length=100)
 
 
 class UserCreate(UserBase):
-    password: str = Field(..., min_length=6, max_length=100)
+  password: str = Field(..., min_length=6, max_length=100)
 
 
 class UserLogin(BaseModel):
-    username_or_email: str = Field(..., description="Username or registered email address")
-    password: str = Field(..., min_length=1)
+  username_or_email: str = Field(
+      ..., description="Username or registered email address"
+  )
+  password: str = Field(..., min_length=1)
 
 
 class PasswordChangeRequest(BaseModel):
-    old_password: str = Field(..., min_length=1)
-    new_password: str = Field(..., min_length=6, max_length=100)
+  old_password: str = Field(..., min_length=1)
+  new_password: str = Field(..., min_length=6, max_length=100)
+
+
+class ForgotPasswordRequest(BaseModel):
+  username_or_email: str = Field(..., min_length=1)
 
 
 class UserResponse(UserBase):
-    id: int
-    role: UserRole
-    is_active: bool
-    created_at: datetime
+  id: int
+  role: UserRole
+  is_active: bool
+  created_at: datetime
 
-    model_config = ConfigDict(from_attributes=True)
+  model_config = ConfigDict(from_attributes=True)
 
 
 class Token(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-    user: UserResponse
+  access_token: str
+  token_type: str = "bearer"
+  user: UserResponse
 
 
 class TokenData(BaseModel):
-    username: Optional[str] = None
-    role: Optional[str] = None
+  username: Optional[str] = None
+  role: Optional[str] = None
 
 
 class UserListResponse(BaseModel):
-    users: List[UserResponse]
-    total: int
-    admin_count: int
-    faculty_count: int = 0
-    technician_count: int
-    user_count: int
+  users: List[UserResponse]
+  total: int
+  admin_count: int
+  faculty_count: int = 0
+  technician_count: int
+  user_count: int

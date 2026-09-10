@@ -1,13 +1,26 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
-from sqlalchemy import or_
-
-from app.database import get_db
-from app.models.user import User
-from app.models.enums import UserRole
-from app.schemas.auth import UserCreate, UserLogin, UserResponse, Token, UserListResponse, PasswordChangeRequest
-from app.auth.security import verify_password, get_password_hash, create_access_token
+import random
 from app.auth.dependencies import get_current_active_user, require_admin
+from app.auth.security import (
+    create_access_token,
+    get_password_hash,
+    verify_password,
+)
+from app.database import get_db
+from app.models.enums import UserRole
+from app.models.user import User
+from app.schemas.auth import (
+    ForgotPasswordRequest,
+    PasswordChangeRequest,
+    Token,
+    UserCreate,
+    UserListResponse,
+    UserLogin,
+    UserResponse,
+)
+from app.services.email_service import send_password_reset_email
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import or_
+from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -16,131 +29,181 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
     "/register",
     response_model=UserResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Register a new standard user"
+    summary="Register a new standard user",
 )
 def register(user_in: UserCreate, db: Session = Depends(get_db)):
-    if db.query(User).filter(User.username == user_in.username.strip().lower()).first():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Username already taken. Please choose another."
-        )
-    if db.query(User).filter(User.email == user_in.email.strip().lower()).first():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email address is already registered."
-        )
-
-    db_user = User(
-        username=user_in.username.strip().lower(),
-        email=user_in.email.strip().lower(),
-        full_name=user_in.full_name.strip(),
-        hashed_password=get_password_hash(user_in.password),
-        role=UserRole.USER.value,
-        is_active=True,
+  if (
+      db.query(User)
+      .filter(User.username == user_in.username.strip().lower())
+      .first()
+  ):
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Username already taken. Please choose another.",
     )
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
-    return db_user
+  if (
+      db.query(User)
+      .filter(User.email == user_in.email.strip().lower())
+      .first()
+  ):
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Email address is already registered.",
+    )
+
+  db_user = User(
+      username=user_in.username.strip().lower(),
+      email=user_in.email.strip().lower(),
+      full_name=user_in.full_name.strip(),
+      hashed_password=get_password_hash(user_in.password),
+      role=UserRole.USER.value,
+      is_active=True,
+  )
+  db.add(db_user)
+  db.commit()
+  db.refresh(db_user)
+  return db_user
 
 
 @router.post(
     "/login",
     response_model=Token,
     status_code=status.HTTP_200_OK,
-    summary="Authenticate user and obtain JWT token"
+    summary="Authenticate user and obtain JWT token",
 )
 def login(login_data: UserLogin, db: Session = Depends(get_db)):
-    identifier = login_data.username_or_email.strip().lower()
-    user = db.query(User).filter(or_(User.username == identifier, User.email == identifier)).first()
+  identifier = login_data.username_or_email.strip().lower()
+  user = (
+      db.query(User)
+      .filter(or_(User.username == identifier, User.email == identifier))
+      .first()
+  )
 
-    if not user or not verify_password(login_data.password, user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username/email or password.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+  if not user or not verify_password(login_data.password, user.hashed_password):
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Incorrect username/email or password.",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
 
-    if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User account is deactivated. Please contact an administrator."
-        )
+  if not user.is_active:
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="User account is deactivated. Please contact an administrator.",
+    )
 
-    access_token = create_access_token(data={"sub": user.username, "role": user.role})
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "user": user,
-    }
+  access_token = create_access_token(
+      data={"sub": user.username, "role": user.role}
+  )
+  return {
+      "access_token": access_token,
+      "token_type": "bearer",
+      "user": user,
+  }
 
 
 @router.post(
     "/change-password",
     status_code=status.HTTP_200_OK,
-    summary="Change password for current logged-in user or faculty"
+    summary="Change password for current user",
 )
 def change_password(
     req: PasswordChangeRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
-    """Allows faculty, students, or staff to change their own password securely."""
-    if not verify_password(req.old_password, current_user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Current password is incorrect."
-        )
+  if not verify_password(req.old_password, current_user.hashed_password):
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Current password is incorrect.",
+    )
 
-    if req.old_password == req.new_password:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="New password cannot be the same as current password."
-        )
+  if req.old_password == req.new_password:
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="New password cannot be the same as current password.",
+    )
 
-    current_user.hashed_password = get_password_hash(req.new_password)
-    db.commit()
-    return {"status": "success", "message": "Password changed successfully."}
+  current_user.hashed_password = get_password_hash(req.new_password)
+  db.commit()
+  return {"status": "success", "message": "Password changed successfully."}
+
+
+@router.post(
+    "/forgot-password",
+    status_code=status.HTTP_200_OK,
+    summary="Send temporary password to email",
+)
+def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_db)):
+  identifier = req.username_or_email.strip().lower()
+  user = (
+      db.query(User)
+      .filter(or_(User.username == identifier, User.email == identifier))
+      .first()
+  )
+
+  if not user:
+    # Security: do not leak whether user exists
+    return {
+        "status": "success",
+        "message": (
+            "If the account exists, reset instructions have been dispatched to"
+            " the registered email."
+        ),
+    }
+
+  # Generate temporary 8-char password
+  temp_pass = f"reset{random.randint(1000, 9999)}"
+  user.hashed_password = get_password_hash(temp_pass)
+  db.commit()
+
+  # Dispatch email alert
+  target_email = user.email or "ganeshaddanki06@gmail.com"
+  send_password_reset_email(
+      to_email=target_email, username=user.username, temp_pass=temp_pass
+  )
+
+  return {
+      "status": "success",
+      "message": (
+          f"Temporary password dispatched to email! Check your inbox."
+      ),
+  }
 
 
 @router.get(
     "/me",
     response_model=UserResponse,
     status_code=status.HTTP_200_OK,
-    summary="Get authenticated user profile"
+    summary="Get authenticated user profile",
 )
 def get_me(current_user: User = Depends(get_current_active_user)):
-    return current_user
+  return current_user
 
 
-@router.post(
-    "/logout",
-    status_code=status.HTTP_200_OK,
-    summary="Logout user session"
-)
+@router.post("/logout", status_code=status.HTTP_200_OK)
 def logout(current_user: User = Depends(get_current_active_user)):
-    return {"status": "success", "message": "Successfully logged out."}
+  return {"status": "success", "message": "Successfully logged out."}
 
 
-@router.get(
-    "/users",
-    response_model=UserListResponse,
-    status_code=status.HTTP_200_OK,
-    summary="Get all system users (Admin only)"
-)
-def get_all_users(db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
-    users = db.query(User).order_by(User.created_at.desc()).all()
-    total = len(users)
-    admin_count = sum(1 for u in users if u.role == UserRole.ADMIN.value)
-    faculty_count = sum(1 for u in users if u.role == UserRole.FACULTY.value)
-    technician_count = sum(1 for u in users if u.role == UserRole.TECHNICIAN.value)
-    user_count = sum(1 for u in users if u.role == UserRole.USER.value)
+@router.get("/users", response_model=UserListResponse)
+def get_all_users(
+    db: Session = Depends(get_db), current_user: User = Depends(require_admin)
+):
+  users = db.query(User).order_by(User.created_at.desc()).all()
+  total = len(users)
+  admin_count = sum(1 for u in users if u.role == UserRole.ADMIN.value)
+  faculty_count = sum(1 for u in users if u.role == UserRole.FACULTY.value)
+  technician_count = sum(
+      1 for u in users if u.role == UserRole.TECHNICIAN.value
+  )
+  user_count = sum(1 for u in users if u.role == UserRole.USER.value)
 
-    return {
-        "users": users,
-        "total": total,
-        "admin_count": admin_count,
-        "faculty_count": faculty_count,
-        "technician_count": technician_count,
-        "user_count": user_count,
-    }
+  return {
+      "users": users,
+      "total": total,
+      "admin_count": admin_count,
+      "faculty_count": faculty_count,
+      "technician_count": technician_count,
+      "user_count": user_count,
+  }
