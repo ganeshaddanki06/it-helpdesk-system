@@ -5,48 +5,73 @@ import urllib.request
 
 
 def _send_brevo_worker(to_email: str, subject: str, html_body: str):
-  """Sends live email to ANY recipient using Brevo HTTPS REST API."""
-  api_key = (os.getenv("BREVO_API_KEY") or "").strip()
+  """Sends live email with sanitized key and fallback support."""
+  api_key = (os.getenv("BREVO_API_KEY") or "").strip().strip("'\"")
+  resend_key = (os.getenv("RESEND_API_KEY") or "").strip().strip("'\"")
 
-  if not api_key:
+  if not api_key and not resend_key:
     print(
-        f"[Email Service] BREVO_API_KEY not configured. Cannot send to:"
-        f" {to_email}",
+        "[Email Service] Neither BREVO_API_KEY nor RESEND_API_KEY configured.",
         flush=True,
     )
     return
 
-  try:
-    url = "https://api.brevo.com/v3/smtp/email"
-    headers = {
-        "api-key": api_key,
-        "Content-Type": "application/json",
-        "accept": "application/json",
-        "User-Agent": "ACET-IT-Helpdesk/1.0",
-    }
-    payload = {
-        "sender": {
-            "name": "ACET IT Helpdesk",
-            "email": "ganeshaddanki06@gmail.com",
-        },
-        "to": [{"email": to_email}],
-        "subject": subject,
-        "htmlContent": html_body,
-    }
+  # 1. Try Brevo First
+  if api_key:
+    try:
+      url = "https://api.brevo.com/v3/smtp/email"
+      headers = {
+          "api-key": api_key,
+          "Content-Type": "application/json",
+          "accept": "application/json",
+          "User-Agent": "ACET-IT-Helpdesk/1.0",
+      }
+      payload = {
+          "sender": {
+              "name": "ACET IT Helpdesk",
+              "email": "ganeshaddanki06@gmail.com",
+          },
+          "to": [{"email": to_email}],
+          "subject": subject,
+          "htmlContent": html_body,
+      }
 
-    req = urllib.request.Request(
-        url, data=json.dumps(payload).encode("utf-8"), headers=headers
-    )
-    with urllib.request.urlopen(req, timeout=15) as response:
-      resp_data = response.read().decode("utf-8")
-      print(
-          f"[SUCCESS] EMAIL DELIVERED TO ANY RECIPIENT {to_email}: {resp_data}",
-          flush=True,
+      req = urllib.request.Request(
+          url, data=json.dumps(payload).encode("utf-8"), headers=headers
       )
-  except Exception as e:
-    print(
-        f"[Email Service Warning] Brevo failed for {to_email}: {e}", flush=True
-    )
+      with urllib.request.urlopen(req, timeout=15) as response:
+        resp_data = response.read().decode("utf-8")
+        print(
+            f"[SUCCESS] BREVO EMAIL DELIVERED TO {to_email}: {resp_data}",
+            flush=True,
+        )
+        return
+    except Exception as e:
+      print(f"[Email Warning] Brevo failed ({e}). Trying fallback...", flush=True)
+
+  # 2. Fallback to Resend (if RESEND_API_KEY is configured)
+  if resend_key:
+    try:
+      url = "https://api.resend.com/emails"
+      headers = {
+          "Authorization": f"Bearer {resend_key}",
+          "Content-Type": "application/json",
+          "User-Agent": "ACET-IT-Helpdesk/1.0",
+      }
+      payload = {
+          "from": "ACET IT Helpdesk <onboarding@resend.dev>",
+          "to": ["ganeshaddanki06@gmail.com"],
+          "subject": subject,
+          "html": html_body,
+      }
+      req = urllib.request.Request(
+          url, data=json.dumps(payload).encode("utf-8"), headers=headers
+      )
+      with urllib.request.urlopen(req, timeout=15) as response:
+        resp_data = response.read().decode("utf-8")
+        print(f"[SUCCESS] RESEND EMAIL DELIVERED: {resp_data}", flush=True)
+    except Exception as e:
+      print(f"[Email Warning] Resend fallback failed: {e}", flush=True)
 
 
 def send_ticket_created_notification(to_email: str, ticket_data: dict):
@@ -101,7 +126,6 @@ def send_ticket_created_notification(to_email: str, ticket_data: dict):
 
 
 def send_password_reset_email(to_email: str, username: str, temp_pass: str):
-  """Dispatches temporary password reset email to user's registered email."""
   if not to_email:
     return
 
@@ -123,7 +147,7 @@ def send_password_reset_email(to_email: str, username: str, temp_pass: str):
           <h3 style="margin: 8px 0; color: #0f172a; font-family: monospace; font-size: 24px; letter-spacing: 2px;">{temp_pass}</h3>
         </div>
 
-        <p style="font-size: 13px; color: #64748b; line-height: 1.5;">Please sign in using this temporary password. Once logged in, you can update it to your permanent password using the <strong>Password</strong> button in the top navigation bar.</p>
+        <p style="font-size: 13px; color: #64748b; line-height: 1.5;">Please sign in using this temporary password.</p>
         
         <div style="text-align: center; margin-top: 25px;">
           <a href="https://it-helpdesk-system-2m9r.vercel.app/login" style="background: #2563eb; color: #ffffff; padding: 10px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px; display: inline-block;">Login to Portal</a>
