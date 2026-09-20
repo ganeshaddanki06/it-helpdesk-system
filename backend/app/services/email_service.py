@@ -6,11 +6,11 @@ import urllib.error
 
 
 def _send_email_worker(to_email: str, subject: str, html_body: str):
-  """Sends live email to ANY recipient using Brevo, with resilient Resend fallback."""
+  """Sends live email directly to the user-specified to_email address."""
   brevo_key = (os.getenv("BREVO_API_KEY") or "").strip().strip("'\"")
   resend_key = (os.getenv("RESEND_API_KEY") or "").strip().strip("'\"")
 
-  # 1. Try Brevo First (Brevo sends to ANY recipient email in the world!)
+  # 1. Try Brevo First (Brevo delivers directly to ANY email in the world!)
   if brevo_key:
     try:
       url = "https://api.brevo.com/v3/smtp/email"
@@ -25,7 +25,7 @@ def _send_email_worker(to_email: str, subject: str, html_body: str):
               "name": "ACET IT Helpdesk",
               "email": "ganeshaddanki06@gmail.com",
           },
-          "to": [{"email": to_email}],
+          "to": [{"email": to_email}],  # <--- నేరుగా నువ్వు ఇచ్చిన ఈమెయిల్‌కే వెళ్తుంది!
           "subject": subject,
           "htmlContent": html_body,
       }
@@ -33,20 +33,16 @@ def _send_email_worker(to_email: str, subject: str, html_body: str):
           url, data=json.dumps(payload).encode("utf-8"), headers=headers
       )
       with urllib.request.urlopen(req, timeout=15) as response:
-        resp_data = response.read().decode("utf-8")
         print(
             f"[SUCCESS] BREVO DELIVERED DIRECTLY TO RECIPIENT {to_email}:"
-            f" {resp_data}",
+            f" {response.read().decode('utf-8')}",
             flush=True,
         )
         return
     except Exception as e:
-      print(
-          f"[Email Warning] Brevo failed for {to_email}: {e}. Trying Resend...",
-          flush=True,
-      )
+      print(f"[Email Warning] Brevo failed: {e}. Trying Resend...", flush=True)
 
-  # 2. Resend Fallback (Sends directly to to_email; forwards to owner if free tier restricts)
+  # 2. Resend Fallback
   if resend_key:
     url = "https://api.resend.com/emails"
     headers = {
@@ -54,48 +50,40 @@ def _send_email_worker(to_email: str, subject: str, html_body: str):
         "Content-Type": "application/json",
         "User-Agent": "ACET-IT-Helpdesk/1.0",
     }
-
-    # Attempt 1: Send directly to requested email
+    payload = {
+        "from": "ACET IT Helpdesk <onboarding@resend.dev>",
+        "to": [to_email],  # <--- నేరుగా ఆ ఈమెయిల్‌కే ట్రై చేస్తుంది
+        "subject": subject,
+        "html": html_body,
+    }
     try:
-      payload = {
-          "from": "ACET IT Helpdesk <onboarding@resend.dev>",
-          "to": [to_email],
-          "subject": subject,
-          "html": html_body,
-      }
       req = urllib.request.Request(
           url, data=json.dumps(payload).encode("utf-8"), headers=headers
       )
       with urllib.request.urlopen(req, timeout=15) as response:
-        resp_data = response.read().decode("utf-8")
         print(
-            f"[SUCCESS] RESEND DELIVERED DIRECTLY TO {to_email}: {resp_data}",
+            f"[SUCCESS] RESEND DELIVERED DIRECTLY TO {to_email}:"
+            f" {response.read().decode('utf-8')}",
             flush=True,
         )
         return
     except urllib.error.HTTPError as e:
-      # If Resend free tier restricts external domain, forward to owner safely
+      # Resend ఫ్రీ ప్లాన్ లో వేరే డొమైన్ బ్లాక్ అయితే మాత్రమే నీకు ఫార్వర్డ్ చేస్తుంది
       if e.code == 403:
         print(
-            f"[Resend Sandbox Notice] Recipient {to_email} restricted by free"
-            " sandbox. Forwarding to admin...",
+            f"[Resend Notice] Recipient {to_email} restricted by free sandbox."
+            " Forwarding to admin...",
             flush=True,
         )
         payload["to"] = ["ganeshaddanki06@gmail.com"]
         payload["subject"] = f"[For: {to_email}] " + subject
-        try:
-          req = urllib.request.Request(
-              url, data=json.dumps(payload).encode("utf-8"), headers=headers
-          )
-          with urllib.request.urlopen(req, timeout=15) as response:
-            print(
-                f"[SUCCESS] RESEND FORWARDED TO ADMIN INBOX: {response.read()}",
-                flush=True,
-            )
-        except Exception as fwd_err:
-          print(f"[Email Error] Resend forward failed: {fwd_err}", flush=True)
+        req = urllib.request.Request(
+            url, data=json.dumps(payload).encode("utf-8"), headers=headers
+        )
+        with urllib.request.urlopen(req, timeout=15) as response:
+          print(f"[SUCCESS] RESEND DELIVERED TO ADMIN INBOX", flush=True)
       else:
-        print(f"[Email Error] Resend failed: {e}", flush=True)
+        print(f"[Email Error] Resend error: {e}", flush=True)
 
 
 def send_ticket_created_notification(to_email: str, ticket_data: dict):
@@ -129,7 +117,7 @@ def send_ticket_created_notification(to_email: str, ticket_data: dict):
             <p style="margin: 4px 0;"><strong>Target Location:</strong> {location}</p>
             <p style="margin: 4px 0;"><strong>Category:</strong> {category}</p>
             <p style="margin: 4px 0;"><strong>Priority:</strong> <span style="color: #dc2626; font-weight: bold;">{priority}</span></p>
-            <p style="margin: 4px 0;"><strong>Intended Recipient:</strong> {to_email}</p>
+            <p style="margin: 4px 0;"><strong>Recipient:</strong> {to_email}</p>
           </div>
 
           <p style="font-size: 13px; color: #64748b;">The IT support team has been informed and will attend to the problem shortly.</p>
