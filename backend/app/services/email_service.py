@@ -2,26 +2,20 @@ import json
 import os
 import threading
 import urllib.request
+import urllib.error
 
 
-def _send_brevo_worker(to_email: str, subject: str, html_body: str):
-  """Sends live email with sanitized key and fallback support."""
-  api_key = (os.getenv("BREVO_API_KEY") or "").strip().strip("'\"")
+def _send_email_worker(to_email: str, subject: str, html_body: str):
+  """Sends live email to ANY recipient using Brevo, with resilient Resend fallback."""
+  brevo_key = (os.getenv("BREVO_API_KEY") or "").strip().strip("'\"")
   resend_key = (os.getenv("RESEND_API_KEY") or "").strip().strip("'\"")
 
-  if not api_key and not resend_key:
-    print(
-        "[Email Service] Neither BREVO_API_KEY nor RESEND_API_KEY configured.",
-        flush=True,
-    )
-    return
-
-  # 1. Try Brevo First
-  if api_key:
+  # 1. Try Brevo First (Brevo sends to ANY recipient email in the world!)
+  if brevo_key:
     try:
       url = "https://api.brevo.com/v3/smtp/email"
       headers = {
-          "api-key": api_key,
+          "api-key": brevo_key,
           "Content-Type": "application/json",
           "accept": "application/json",
           "User-Agent": "ACET-IT-Helpdesk/1.0",
@@ -35,32 +29,37 @@ def _send_brevo_worker(to_email: str, subject: str, html_body: str):
           "subject": subject,
           "htmlContent": html_body,
       }
-
       req = urllib.request.Request(
           url, data=json.dumps(payload).encode("utf-8"), headers=headers
       )
       with urllib.request.urlopen(req, timeout=15) as response:
         resp_data = response.read().decode("utf-8")
         print(
-            f"[SUCCESS] BREVO EMAIL DELIVERED TO {to_email}: {resp_data}",
+            f"[SUCCESS] BREVO DELIVERED DIRECTLY TO RECIPIENT {to_email}:"
+            f" {resp_data}",
             flush=True,
         )
         return
     except Exception as e:
-      print(f"[Email Warning] Brevo failed ({e}). Trying fallback...", flush=True)
+      print(
+          f"[Email Warning] Brevo failed for {to_email}: {e}. Trying Resend...",
+          flush=True,
+      )
 
-  # 2. Fallback to Resend (if RESEND_API_KEY is configured)
+  # 2. Resend Fallback (Sends directly to to_email; forwards to owner if free tier restricts)
   if resend_key:
+    url = "https://api.resend.com/emails"
+    headers = {
+        "Authorization": f"Bearer {resend_key}",
+        "Content-Type": "application/json",
+        "User-Agent": "ACET-IT-Helpdesk/1.0",
+    }
+
+    # Attempt 1: Send directly to requested email
     try:
-      url = "https://api.resend.com/emails"
-      headers = {
-          "Authorization": f"Bearer {resend_key}",
-          "Content-Type": "application/json",
-          "User-Agent": "ACET-IT-Helpdesk/1.0",
-      }
       payload = {
           "from": "ACET IT Helpdesk <onboarding@resend.dev>",
-          "to": ["ganeshaddanki06@gmail.com"],
+          "to": [to_email],
           "subject": subject,
           "html": html_body,
       }
@@ -69,9 +68,34 @@ def _send_brevo_worker(to_email: str, subject: str, html_body: str):
       )
       with urllib.request.urlopen(req, timeout=15) as response:
         resp_data = response.read().decode("utf-8")
-        print(f"[SUCCESS] RESEND EMAIL DELIVERED: {resp_data}", flush=True)
-    except Exception as e:
-      print(f"[Email Warning] Resend fallback failed: {e}", flush=True)
+        print(
+            f"[SUCCESS] RESEND DELIVERED DIRECTLY TO {to_email}: {resp_data}",
+            flush=True,
+        )
+        return
+    except urllib.error.HTTPError as e:
+      # If Resend free tier restricts external domain, forward to owner safely
+      if e.code == 403:
+        print(
+            f"[Resend Sandbox Notice] Recipient {to_email} restricted by free"
+            " sandbox. Forwarding to admin...",
+            flush=True,
+        )
+        payload["to"] = ["ganeshaddanki06@gmail.com"]
+        payload["subject"] = f"[For: {to_email}] " + subject
+        try:
+          req = urllib.request.Request(
+              url, data=json.dumps(payload).encode("utf-8"), headers=headers
+          )
+          with urllib.request.urlopen(req, timeout=15) as response:
+            print(
+                f"[SUCCESS] RESEND FORWARDED TO ADMIN INBOX: {response.read()}",
+                flush=True,
+            )
+        except Exception as fwd_err:
+          print(f"[Email Error] Resend forward failed: {fwd_err}", flush=True)
+      else:
+        print(f"[Email Error] Resend failed: {e}", flush=True)
 
 
 def send_ticket_created_notification(to_email: str, ticket_data: dict):
@@ -102,10 +126,10 @@ def send_ticket_created_notification(to_email: str, ticket_data: dict):
           <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 16px 0;">
             <p style="margin: 4px 0;"><strong>Ticket ID:</strong> <span style="color: #2563eb; font-weight: bold;">{ticket_id}</span></p>
             <p style="margin: 4px 0;"><strong>Issue Summary:</strong> {issue_title}</p>
-            <p style="margin: 4px 0;"><strong>Location:</strong> {location}</p>
+            <p style="margin: 4px 0;"><strong>Target Location:</strong> {location}</p>
             <p style="margin: 4px 0;"><strong>Category:</strong> {category}</p>
             <p style="margin: 4px 0;"><strong>Priority:</strong> <span style="color: #dc2626; font-weight: bold;">{priority}</span></p>
-            <p style="margin: 4px 0;"><strong>Status:</strong> <span style="color: #2563eb; font-weight: bold;">Open (Assigned for Diagnosis)</span></p>
+            <p style="margin: 4px 0;"><strong>Intended Recipient:</strong> {to_email}</p>
           </div>
 
           <p style="font-size: 13px; color: #64748b;">The IT support team has been informed and will attend to the problem shortly.</p>
@@ -119,7 +143,7 @@ def send_ticket_created_notification(to_email: str, ticket_data: dict):
     """
 
   worker = threading.Thread(
-      target=_send_brevo_worker, args=(to_email, subject, html_body)
+      target=_send_email_worker, args=(to_email, subject, html_body)
   )
   worker.daemon = True
   worker.start()
@@ -158,7 +182,7 @@ def send_password_reset_email(to_email: str, username: str, temp_pass: str):
     """
 
   worker = threading.Thread(
-      target=_send_brevo_worker, args=(to_email, subject, html_body)
+      target=_send_email_worker, args=(to_email, subject, html_body)
   )
   worker.daemon = True
   worker.start()
