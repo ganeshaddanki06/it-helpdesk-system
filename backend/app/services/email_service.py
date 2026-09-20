@@ -5,133 +5,97 @@ import urllib.request
 import urllib.error
 
 
-def _send_email_worker(to_email: str, subject: str, html_body: str):
-  """Sends live email directly to the user-specified to_email address."""
-  brevo_key = (os.getenv("BREVO_API_KEY") or "").strip().strip("'\"")
+def _send_emailjs_worker(to_email: str, ticket_data: dict):
+  """Delivers live email directly to ANY recipient in the world using EmailJS API."""
+  service_id = (
+      os.getenv("EMAILJS_SERVICE_ID") or "service_mfchigg"
+  ).strip()
+  template_id = (
+      os.getenv("EMAILJS_TEMPLATE_ID") or "template_x3nc6xw"
+  ).strip()
+  public_key = (
+      os.getenv("EMAILJS_PUBLIC_KEY") or "UdBMHRKJKbUDStLfX"
+  ).strip()
   resend_key = (os.getenv("RESEND_API_KEY") or "").strip().strip("'\"")
 
-  # 1. Try Brevo First (Brevo delivers directly to ANY email in the world!)
-  if brevo_key:
-    try:
-      url = "https://api.brevo.com/v3/smtp/email"
-      headers = {
-          "api-key": brevo_key,
-          "Content-Type": "application/json",
-          "accept": "application/json",
-          "User-Agent": "ACET-IT-Helpdesk/1.0",
-      }
-      payload = {
-          "sender": {
-              "name": "ACET IT Helpdesk",
-              "email": "ganeshaddanki06@gmail.com",
-          },
-          "to": [{"email": to_email}],  # <--- నేరుగా నువ్వు ఇచ్చిన ఈమెయిల్‌కే వెళ్తుంది!
-          "subject": subject,
-          "htmlContent": html_body,
-      }
-      req = urllib.request.Request(
-          url, data=json.dumps(payload).encode("utf-8"), headers=headers
-      )
-      with urllib.request.urlopen(req, timeout=15) as response:
-        print(
-            f"[SUCCESS] BREVO DELIVERED DIRECTLY TO RECIPIENT {to_email}:"
-            f" {response.read().decode('utf-8')}",
-            flush=True,
-        )
-        return
-    except Exception as e:
-      print(f"[Email Warning] Brevo failed: {e}. Trying Resend...", flush=True)
+  ticket_id = ticket_data.get("ticket_id", "TICKET")
+  issue_title = ticket_data.get("issue_title", "IT Incident")
+  requester = ticket_data.get("requester_name", "Student / Faculty")
+  location = ticket_data.get("location", "Campus")
+  category = ticket_data.get("category", "General")
+  priority = ticket_data.get("priority", "Medium")
 
-  # 2. Resend Fallback
-  if resend_key:
-    url = "https://api.resend.com/emails"
+  # 1. Primary Delivery: EmailJS (Sends to ANY email via your verified Gmail!)
+  try:
+    url = "https://api.emailjs.com/api/v1.0/email/send"
     headers = {
-        "Authorization": f"Bearer {resend_key}",
         "Content-Type": "application/json",
         "User-Agent": "ACET-IT-Helpdesk/1.0",
     }
     payload = {
-        "from": "ACET IT Helpdesk <onboarding@resend.dev>",
-        "to": [to_email],  # <--- నేరుగా ఆ ఈమెయిల్‌కే ట్రై చేస్తుంది
-        "subject": subject,
-        "html": html_body,
+        "service_id": service_id,
+        "template_id": template_id,
+        "user_id": public_key,
+        "template_params": {
+            "to_email": to_email,
+            "ticket_id": ticket_id,
+            "issue_title": issue_title,
+            "name": requester,
+            "location": location,
+            "category": category,
+            "priority": priority,
+            "message": (
+                f"Your IT problem has been registered under Ticket ID:"
+                f" {ticket_id} for location: {location}. The technical team has"
+                " been assigned to diagnose it."
+            ),
+        },
     }
+    req = urllib.request.Request(
+        url, data=json.dumps(payload).encode("utf-8"), headers=headers
+    )
+    with urllib.request.urlopen(req, timeout=15) as response:
+      print(
+          f"[SUCCESS] EMAILJS DELIVERED DIRECTLY TO {to_email} (Status:"
+          f" {response.status})",
+          flush=True,
+      )
+      return
+  except Exception as e:
+    print(f"[Email Warning] EmailJS failed: {e}. Trying Resend fallback...", flush=True)
+
+  # 2. Backup Delivery: Resend
+  if resend_key:
     try:
+      url = "https://api.resend.com/emails"
+      headers = {
+          "Authorization": f"Bearer {resend_key}",
+          "Content-Type": "application/json",
+          "User-Agent": "ACET-IT-Helpdesk/1.0",
+      }
+      payload = {
+          "from": "ACET IT Helpdesk <onboarding@resend.dev>",
+          "to": ["ganeshaddanki06@gmail.com"],
+          "subject": f"[For: {to_email}] [{ticket_id}] {issue_title}",
+          "html": (
+              f"<h3>[{ticket_id}] {issue_title}</h3><p>Location:"
+              f" {location}</p><p>Intended Recipient: {to_email}</p>"
+          ),
+      }
       req = urllib.request.Request(
           url, data=json.dumps(payload).encode("utf-8"), headers=headers
       )
       with urllib.request.urlopen(req, timeout=15) as response:
-        print(
-            f"[SUCCESS] RESEND DELIVERED DIRECTLY TO {to_email}:"
-            f" {response.read().decode('utf-8')}",
-            flush=True,
-        )
-        return
-    except urllib.error.HTTPError as e:
-      # Resend ఫ్రీ ప్లాన్ లో వేరే డొమైన్ బ్లాక్ అయితే మాత్రమే నీకు ఫార్వర్డ్ చేస్తుంది
-      if e.code == 403:
-        print(
-            f"[Resend Notice] Recipient {to_email} restricted by free sandbox."
-            " Forwarding to admin...",
-            flush=True,
-        )
-        payload["to"] = ["ganeshaddanki06@gmail.com"]
-        payload["subject"] = f"[For: {to_email}] " + subject
-        req = urllib.request.Request(
-            url, data=json.dumps(payload).encode("utf-8"), headers=headers
-        )
-        with urllib.request.urlopen(req, timeout=15) as response:
-          print(f"[SUCCESS] RESEND DELIVERED TO ADMIN INBOX", flush=True)
-      else:
-        print(f"[Email Error] Resend error: {e}", flush=True)
+        print(f"[SUCCESS] RESEND BACKUP DELIVERED TO ADMIN INBOX", flush=True)
+    except Exception as re_err:
+      print(f"[Email Error] Resend fallback failed: {re_err}", flush=True)
 
 
 def send_ticket_created_notification(to_email: str, ticket_data: dict):
   if not to_email:
     return
-
-  ticket_id = ticket_data.get("ticket_id", "TICKET")
-  issue_title = ticket_data.get("issue_title", "IT Incident")
-  requester = ticket_data.get("requester_name", "Faculty / Student")
-  location = ticket_data.get("location", "Campus")
-  category = ticket_data.get("category", "Hardware/Lab")
-  priority = ticket_data.get("priority", "Medium")
-
-  subject = f"[{ticket_id}] Problem Raised: {issue_title}"
-  html_body = f"""
-    <!DOCTYPE html>
-    <html>
-    <body style="font-family: Arial, sans-serif; background-color: #0f172a; padding: 20px; color: #334155;">
-      <div style="max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.15);">
-        <div style="background: linear-gradient(135deg, #0b1329 0%, #1e293b 100%); color: #ffffff; padding: 22px; text-align: center;">
-          <h2 style="margin: 0; font-size: 20px;">ACET IT Helpdesk Notification</h2>
-          <p style="margin: 4px 0 0; font-size: 13px; color: #94a3b8;">Aditya College of Engineering and Technology</p>
-        </div>
-        <div style="padding: 24px; line-height: 1.6;">
-          <p style="font-size: 15px; margin-top: 0;">Hello <strong>{requester}</strong>,</p>
-          <p style="color: #475569;">A technical problem has been reported and registered in the IT Helpdesk portal:</p>
-          
-          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 16px 0;">
-            <p style="margin: 4px 0;"><strong>Ticket ID:</strong> <span style="color: #2563eb; font-weight: bold;">{ticket_id}</span></p>
-            <p style="margin: 4px 0;"><strong>Issue Summary:</strong> {issue_title}</p>
-            <p style="margin: 4px 0;"><strong>Target Location:</strong> {location}</p>
-            <p style="margin: 4px 0;"><strong>Category:</strong> {category}</p>
-            <p style="margin: 4px 0;"><strong>Priority:</strong> <span style="color: #dc2626; font-weight: bold;">{priority}</span></p>
-            <p style="margin: 4px 0;"><strong>Recipient:</strong> {to_email}</p>
-          </div>
-
-          <p style="font-size: 13px; color: #64748b;">The IT support team has been informed and will attend to the problem shortly.</p>
-          <div style="text-align: center; margin-top: 25px;">
-            <a href="https://it-helpdesk-system-2m9r.vercel.app/tickets/{ticket_id}" style="background: #2563eb; color: #ffffff; padding: 10px 22px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px; display: inline-block;">View Ticket Online</a>
-          </div>
-        </div>
-      </div>
-    </body>
-    </html>
-    """
-
   worker = threading.Thread(
-      target=_send_email_worker, args=(to_email, subject, html_body)
+      target=_send_emailjs_worker, args=(to_email, ticket_data)
   )
   worker.daemon = True
   worker.start()
@@ -140,37 +104,16 @@ def send_ticket_created_notification(to_email: str, ticket_data: dict):
 def send_password_reset_email(to_email: str, username: str, temp_pass: str):
   if not to_email:
     return
-
-  subject = "[ACET IT Helpdesk] Account Password Reset"
-  html_body = f"""
-    <!DOCTYPE html>
-    <html>
-    <body style="font-family: Arial, sans-serif; background-color: #0f172a; padding: 20px; color: #334155;">
-      <div style="max-width: 520px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; padding: 24px; box-shadow: 0 4px 15px rgba(0,0,0,0.15);">
-        <div style="text-align: center; margin-bottom: 20px;">
-          <h2 style="color: #2563eb; margin: 0;">ACET IT Helpdesk</h2>
-          <p style="color: #64748b; font-size: 13px; margin-top: 4px;">Password Reset Instructions</p>
-        </div>
-        <p>Hello <strong>{username}</strong>,</p>
-        <p>A password reset request was received for your IT Helpdesk account.</p>
-        
-        <div style="background: #f8fafc; border: 1px dashed #2563eb; border-radius: 8px; padding: 18px; margin: 20px 0; text-align: center;">
-          <p style="margin: 0; color: #64748b; font-size: 13px; text-transform: uppercase; font-weight: bold;">Your Temporary Password</p>
-          <h3 style="margin: 8px 0; color: #0f172a; font-family: monospace; font-size: 24px; letter-spacing: 2px;">{temp_pass}</h3>
-        </div>
-
-        <p style="font-size: 13px; color: #64748b; line-height: 1.5;">Please sign in using this temporary password.</p>
-        
-        <div style="text-align: center; margin-top: 25px;">
-          <a href="https://it-helpdesk-system-2m9r.vercel.app/login" style="background: #2563eb; color: #ffffff; padding: 10px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px; display: inline-block;">Login to Portal</a>
-        </div>
-      </div>
-    </body>
-    </html>
-    """
-
+  reset_data = {
+      "ticket_id": "RESET",
+      "issue_title": "Account Password Reset",
+      "requester_name": username,
+      "location": "Portal Authentication",
+      "category": "Security",
+      "priority": "High",
+  }
   worker = threading.Thread(
-      target=_send_email_worker, args=(to_email, subject, html_body)
+      target=_send_emailjs_worker, args=(to_email, reset_data)
   )
   worker.daemon = True
   worker.start()
