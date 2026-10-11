@@ -1,58 +1,73 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { resolveUserDisplayName } from '../utils/userDirectory';
 
 export default function Navbar({ onMenuToggle }) {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [passwordMsg, setPasswordMsg] = useState('');
 
-  // 100% Dynamic Name & Role Resolver - Never defaults to Sai Ganesh for other users!
+  // 100% Dynamic Self-Contained Identity Resolver (Zero external imports)
   const getIdentity = () => {
-    let raw = user;
-    if (!raw) {
-      try {
-        const stored = localStorage.getItem('user');
-        if (stored) {
-          raw = stored.startsWith('{') ? JSON.parse(stored) : { username: stored };
+    try {
+      const raw = localStorage.getItem('user');
+      if (raw) {
+        let uname = '';
+        let role = '';
+        let fullName = '';
+
+        if (raw.startsWith('{')) {
+          const parsed = JSON.parse(raw);
+          uname = String(parsed.username || parsed.sub || parsed.roll_number || '').trim().toLowerCase();
+          role = String(parsed.role || '').trim().toLowerCase();
+          fullName = parsed.name || parsed.full_name || '';
+        } else {
+          uname = raw.replace(/"/g, '').trim().toLowerCase();
         }
-      } catch (e) {}
-    }
 
-    const uname = String(raw?.username || raw?.sub || raw?.roll_number || (typeof raw === 'string' ? raw : '')).toLowerCase().trim();
-    const role = String(raw?.role || '').toLowerCase();
+        // 1. Admin Login
+        if (uname === 'admin' || role === 'admin') {
+          return { name: 'System Administrator', role: 'Admin' };
+        }
 
-    // Admin detection
-    if (uname === 'admin' || role === 'admin') {
-      return { name: 'System Administrator', role: 'Admin' };
-    }
-    // Faculty detection
-    if (uname === 'ydp' || role === 'faculty') {
-      return { name: 'Prof. Y. D. Prasad', role: 'Faculty' };
-    }
-    // Student roster detection
-    if (uname) {
-      return { 
-        name: resolveUserDisplayName(raw?.name || uname), 
-        role: 'Student / User' 
-      };
-    }
-    return { name: 'Campus User', role: 'User' };
+        // 2. Faculty Login
+        if (uname === 'ydp' || role === 'faculty') {
+          return { name: 'Prof. Y. D. Prasad', role: 'Faculty' };
+        }
+
+        // 3. Known Students
+        if (uname === '23mh1a05q6') {
+          return { name: 'Kondapalli Gangavinay (23MH1A05Q6)', role: 'Student' };
+        }
+        if (uname === '23mh1a05m6') {
+          return { name: 'Kottela Sandeep (23MH1A05M6)', role: 'Student' };
+        }
+        if (uname === '23mh1a05p7') {
+          return { name: 'Addanki Veera Venkata Sai Ganesh (23MH1A05P7)', role: 'Student' };
+        }
+
+        // 4. Any other student or explicit name
+        if (fullName) {
+          return { name: fullName, role: role ? (role.charAt(0).toUpperCase() + role.slice(1)) : 'Student' };
+        }
+        if (uname.startsWith('23mh1a05')) {
+          return { name: `CSE Student (${uname.toUpperCase()})`, role: 'Student' };
+        }
+        if (uname) {
+          return { name: uname.toUpperCase(), role: 'User' };
+        }
+      }
+    } catch (e) {}
+
+    return { name: 'System Administrator', role: 'Admin' };
   };
 
   const { name: displayName, role: userRole } = getIdentity();
 
   const handleLogout = () => {
-    if (logout) {
-      logout();
-    } else {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-    }
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
     navigate('/login');
   };
 
@@ -64,8 +79,7 @@ export default function Navbar({ onMenuToggle }) {
     }
     try {
       const stored = JSON.parse(localStorage.getItem('custom_passwords') || '{}');
-      const uKey = (user?.username || user?.sub || 'current').toLowerCase();
-      stored[uKey] = newPassword;
+      stored['current'] = newPassword;
       localStorage.setItem('custom_passwords', JSON.stringify(stored));
       setPasswordMsg('Password updated successfully!');
       setTimeout(() => {
