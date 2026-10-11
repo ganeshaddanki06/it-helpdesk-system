@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { resolveUserDisplayName } from '../utils/userDirectory';
 
 export default function Navbar({ onMenuToggle }) {
   const navigate = useNavigate();
@@ -8,28 +9,26 @@ export default function Navbar({ onMenuToggle }) {
   const [newPassword, setNewPassword] = useState('');
   const [passwordMsg, setPasswordMsg] = useState('');
 
-  // Safe User extraction
-  let displayName = 'Addanki Veera Venkata Sai Ganesh (23MH1A05P7)';
-  let userRole = 'Student / User';
+  // Extract logged-in username dynamically
+  let rawUsername = '23mh1a05p7';
+  let userRole = 'Student';
   try {
     const raw = localStorage.getItem('user');
     if (raw) {
       if (raw.startsWith('{')) {
         const parsed = JSON.parse(raw);
-        displayName = parsed.name || parsed.username || displayName;
-        userRole = parsed.role ? (parsed.role.charAt(0).toUpperCase() + parsed.role.slice(1)) : userRole;
+        rawUsername = parsed.username || parsed.roll_number || '23mh1a05p7';
+        userRole = parsed.role ? (parsed.role.charAt(0).toUpperCase() + parsed.role.slice(1)) : 'Student';
       } else {
-        const clean = raw.replace(/"/g, '').trim();
-        if (clean.toLowerCase() === 'admin') {
-          displayName = 'System Administrator';
-          userRole = 'Admin';
-        } else if (clean.toLowerCase() === 'ydp') {
-          displayName = 'Prof. Y. D. Prasad';
-          userRole = 'Faculty';
-        }
+        rawUsername = raw.replace(/"/g, '').trim();
+        if (rawUsername.toLowerCase() === 'admin') userRole = 'Admin';
+        else if (rawUsername.toLowerCase() === 'ydp') userRole = 'Faculty';
       }
     }
   } catch (e) {}
+
+  // Resolves the exact student/faculty/admin name dynamically matching the Dashboard!
+  const displayName = resolveUserDisplayName(rawUsername);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -45,7 +44,7 @@ export default function Navbar({ onMenuToggle }) {
     }
     try {
       const stored = JSON.parse(localStorage.getItem('custom_passwords') || '{}');
-      stored['current'] = newPassword;
+      stored[rawUsername.toLowerCase()] = newPassword;
       localStorage.setItem('custom_passwords', JSON.stringify(stored));
       setPasswordMsg('Password updated successfully!');
       setTimeout(() => {
@@ -94,8 +93,8 @@ export default function Navbar({ onMenuToggle }) {
         </span>
       </div>
 
-      {/* Right: Notifications, User Pill, Password, Logout */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', position: 'relative' }}>
+      {/* Right: Notifications, Dynamic User Pill, Password, Logout */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', position: 'relative' }}>
         
         {/* Notification Bell */}
         <div style={{ position: 'relative' }}>
@@ -130,24 +129,17 @@ export default function Navbar({ onMenuToggle }) {
             </span>
           </button>
 
-          {/* Notifications Dropdown (ONLY shows when clicked) */}
           {showNotifications && (
             <>
-              {/* Click-outside backdrop with pointer-events guard */}
               <div
                 onClick={() => setShowNotifications(false)}
-                style={{
-                  position: 'fixed',
-                  inset: 0,
-                  zIndex: 35,
-                  backgroundColor: 'transparent'
-                }}
+                style={{ position: 'fixed', inset: 0, zIndex: 35, backgroundColor: 'transparent' }}
               />
               <div style={{
                 position: 'absolute',
                 top: '46px',
                 right: '0',
-                width: '300px',
+                width: 'min(300px, 90vw)',
                 backgroundColor: '#0f172a',
                 border: '1px solid #1e293b',
                 borderRadius: '16px',
@@ -171,21 +163,31 @@ export default function Navbar({ onMenuToggle }) {
           )}
         </div>
 
-        {/* User Pill */}
+        {/* Dynamic User Pill (Matches Dashboard exactly & stays compact on mobile) */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
           gap: '8px',
           backgroundColor: '#0b1329',
           border: '1px solid #1e293b',
-          padding: '6px 14px',
-          borderRadius: '9999px'
+          padding: '6px 12px',
+          borderRadius: '9999px',
+          maxWidth: '280px'
         }}>
-          <div style={{ width: '22px', height: '22px', borderRadius: '50%', backgroundColor: '#2563eb', color: '#fff', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
+          <div style={{ width: '22px', height: '22px', borderRadius: '50%', backgroundColor: '#2563eb', color: '#fff', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', flexShrink: 0 }}>
             👤
           </div>
-          <div>
-            <div style={{ fontSize: '12px', fontWeight: '700', color: '#ffffff', lineHeight: 1.2 }}>
+          <div style={{ overflow: 'hidden' }}>
+            <div style={{
+              fontSize: '12px',
+              fontWeight: '700',
+              color: '#ffffff',
+              lineHeight: 1.2,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              maxWidth: '180px'
+            }}>
               {displayName}
             </div>
             <div style={{ fontSize: '10px', color: '#64748b', fontWeight: '600' }}>
@@ -194,11 +196,11 @@ export default function Navbar({ onMenuToggle }) {
           </div>
         </div>
 
-        {/* Password Change Button */}
+        {/* Password Button */}
         <button
           onClick={() => setShowPasswordModal(true)}
           style={{
-            padding: '6px 12px',
+            padding: '6px 10px',
             backgroundColor: 'rgba(59, 130, 246, 0.15)',
             border: '1px solid rgba(59, 130, 246, 0.3)',
             borderRadius: '10px',
@@ -211,7 +213,7 @@ export default function Navbar({ onMenuToggle }) {
             gap: '4px'
           }}
         >
-          🔑 Password
+          🔑 <span className="hidden sm:inline">Password</span>
         </button>
 
         {/* Logout Button */}
@@ -232,7 +234,7 @@ export default function Navbar({ onMenuToggle }) {
         </button>
       </div>
 
-      {/* Password Modal (ONLY mounts when showPasswordModal is TRUE) */}
+      {/* Password Modal */}
       {showPasswordModal && (
         <div style={{
           position: 'fixed',
@@ -264,7 +266,7 @@ export default function Navbar({ onMenuToggle }) {
               Change Password
             </h3>
             <p style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '16px' }}>
-              Set a private password for your account.
+              Set a private password for {displayName}.
             </p>
             <form onSubmit={handlePasswordChange}>
               <input
