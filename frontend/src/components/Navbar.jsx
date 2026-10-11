@@ -1,38 +1,28 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { resolveUserDisplayName } from '../utils/userDirectory';
 
 export default function Navbar({ onMenuToggle }) {
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [passwordMsg, setPasswordMsg] = useState('');
 
-  // Extract logged-in username dynamically
-  let rawUsername = '23mh1a05p7';
-  let userRole = 'Student';
-  try {
-    const raw = localStorage.getItem('user');
-    if (raw) {
-      if (raw.startsWith('{')) {
-        const parsed = JSON.parse(raw);
-        rawUsername = parsed.username || parsed.roll_number || '23mh1a05p7';
-        userRole = parsed.role ? (parsed.role.charAt(0).toUpperCase() + parsed.role.slice(1)) : 'Student';
-      } else {
-        rawUsername = raw.replace(/"/g, '').trim();
-        if (rawUsername.toLowerCase() === 'admin') userRole = 'Admin';
-        else if (rawUsername.toLowerCase() === 'ydp') userRole = 'Faculty';
-      }
-    }
-  } catch (e) {}
-
-  // Resolves the exact student/faculty/admin name dynamically matching the Dashboard!
-  const displayName = resolveUserDisplayName(rawUsername);
+  // Dynamically resolve display name and role from the logged-in user session!
+  const rawIdentifier = user?.name || user?.full_name || user?.username || user?.roll_number || (typeof user === 'string' ? user : '');
+  const displayName = resolveUserDisplayName(rawIdentifier) || 'Campus User';
+  const userRole = user?.role ? (user.role.charAt(0).toUpperCase() + user.role.slice(1)) : 'User';
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    if (logout) {
+      logout();
+    } else {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+    }
     navigate('/login');
   };
 
@@ -44,7 +34,8 @@ export default function Navbar({ onMenuToggle }) {
     }
     try {
       const stored = JSON.parse(localStorage.getItem('custom_passwords') || '{}');
-      stored[rawUsername.toLowerCase()] = newPassword;
+      const uKey = (user?.username || 'current').toLowerCase();
+      stored[uKey] = newPassword;
       localStorage.setItem('custom_passwords', JSON.stringify(stored));
       setPasswordMsg('Password updated successfully!');
       setTimeout(() => {
@@ -163,7 +154,7 @@ export default function Navbar({ onMenuToggle }) {
           )}
         </div>
 
-        {/* Dynamic User Pill (Matches Dashboard exactly & stays compact on mobile) */}
+        {/* Dynamic User Pill - Exactly matches logged-in account */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
