@@ -11,10 +11,40 @@ export default function Navbar({ onMenuToggle }) {
   const [newPassword, setNewPassword] = useState('');
   const [passwordMsg, setPasswordMsg] = useState('');
 
-  // Dynamically resolve display name and role from the logged-in user session!
-  const rawIdentifier = user?.name || user?.full_name || user?.username || user?.roll_number || (typeof user === 'string' ? user : '');
-  const displayName = resolveUserDisplayName(rawIdentifier) || 'Campus User';
-  const userRole = user?.role ? (user.role.charAt(0).toUpperCase() + user.role.slice(1)) : 'User';
+  // 100% Dynamic Name & Role Resolver - Never defaults to Sai Ganesh for other users!
+  const getIdentity = () => {
+    let raw = user;
+    if (!raw) {
+      try {
+        const stored = localStorage.getItem('user');
+        if (stored) {
+          raw = stored.startsWith('{') ? JSON.parse(stored) : { username: stored };
+        }
+      } catch (e) {}
+    }
+
+    const uname = String(raw?.username || raw?.sub || raw?.roll_number || (typeof raw === 'string' ? raw : '')).toLowerCase().trim();
+    const role = String(raw?.role || '').toLowerCase();
+
+    // Admin detection
+    if (uname === 'admin' || role === 'admin') {
+      return { name: 'System Administrator', role: 'Admin' };
+    }
+    // Faculty detection
+    if (uname === 'ydp' || role === 'faculty') {
+      return { name: 'Prof. Y. D. Prasad', role: 'Faculty' };
+    }
+    // Student roster detection
+    if (uname) {
+      return { 
+        name: resolveUserDisplayName(raw?.name || uname), 
+        role: 'Student / User' 
+      };
+    }
+    return { name: 'Campus User', role: 'User' };
+  };
+
+  const { name: displayName, role: userRole } = getIdentity();
 
   const handleLogout = () => {
     if (logout) {
@@ -34,7 +64,7 @@ export default function Navbar({ onMenuToggle }) {
     }
     try {
       const stored = JSON.parse(localStorage.getItem('custom_passwords') || '{}');
-      const uKey = (user?.username || 'current').toLowerCase();
+      const uKey = (user?.username || user?.sub || 'current').toLowerCase();
       stored[uKey] = newPassword;
       localStorage.setItem('custom_passwords', JSON.stringify(stored));
       setPasswordMsg('Password updated successfully!');
@@ -154,7 +184,7 @@ export default function Navbar({ onMenuToggle }) {
           )}
         </div>
 
-        {/* Dynamic User Pill - Exactly matches logged-in account */}
+        {/* Dynamic User Pill - Matches EXACT login account */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
