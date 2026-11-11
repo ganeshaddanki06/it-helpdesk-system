@@ -32,3 +32,4 @@ it-helpdesk-system/
 ├── backend/          # Python FastAPI/Flask application & SQLite DB
 ├── frontend/         # React.js user interface & dashboards
 └── README.md         # Project documentation
+[![Buy Full Source Code](https://img.shields.io/badge/Buy%20Source%20Code-Gumroad-blue?style=for-the-badge&logo=gumroad)](మీ_గమ్_రోడ్_లింక్_ఇక్కడ_ఇవ్వండి)
